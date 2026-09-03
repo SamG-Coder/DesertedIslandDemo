@@ -1,7 +1,7 @@
 import * as THREE from "three/webgpu";
 import WebGPU from "three/addons/capabilities/WebGPU.js";
 import { createViewState, stepFirstPerson, cameraOrientation } from "./first-person.mjs";
-import { createBeachCollisionWorld } from "./collision-system.mjs";
+import { createBeachCollisionWorld, TOOL_AIM_DISTANCE } from "./collision-system.mjs";
 import { createBeachFootstepSystem } from "./footstep-system.mjs";
 import { loadAllTileMaps, syncSkyUniforms, waterTime } from "./materials.mjs";
 import { applySkyCycle, createSkyClock } from "./sky-cycle.mjs";
@@ -15,7 +15,7 @@ import { createBeachWeather } from "./weather.mjs";
 import { createBeachShovel } from "./shovel-system.mjs";
 import { classifyBeachSurface, classifyDigBurst } from "./footstep-logic.mjs";
 import { createDigBurstSystem } from "./dig-burst.mjs";
-import { createInventory, harvestItemId, hotbarIndexFromCode } from "./inventory-system.mjs";
+import { createInventory, dumpableSandId, harvestItemId, hotbarIndexFromCode } from "./inventory-system.mjs";
 import { createInventoryHud } from "./inventory-hud.mjs";
 import { isBrowserHost, reportProgress, yieldToBrowser } from "./async-load.mjs";
 
@@ -98,7 +98,7 @@ renderer.backend.device?.addEventListener?.("uncapturederror", event => {
 
 const rtx = navigator.gpu?.threeBrowserRTX ?? null;
 reportBridge(rtx);
-console.log("[First-Person Beach] Click/dig · WASD walk · Shift sprint · Space jump · E carry/drop · Tab inventory · 1-9 hotbar · X RTX");
+console.log("[First-Person Beach] Click/dig · Right-click dump sand · WASD walk · Shift sprint · Space jump · E carry/drop · Tab inventory · 1-9 hotbar · X RTX");
 
 const scene = new THREE.Scene();
 scene.name = "First-person tropical beach";
@@ -182,6 +182,34 @@ function collectFromDig(hit) {
   const item = inventory.catalog[itemId];
   console.log(`[First-Person Beach] Collected ${item?.name ?? itemId}`);
   hud.markDirty();
+}
+
+const aimOrigin = new THREE.Vector3();
+const aimDirection = new THREE.Vector3();
+
+function dumpOntoGround() {
+  if (hud.open || shovel.digging) return false;
+  const itemId = dumpableSandId(inventory);
+  if (!itemId) return false;
+  camera.getWorldPosition(aimOrigin);
+  camera.getWorldDirection(aimDirection);
+  const hit = collisionWorld.raycastSurface(aimOrigin, aimDirection, TOOL_AIM_DISTANCE);
+  if (!hit || hit.kind !== "terrain") return false;
+  if (inventory.remove(itemId, 1) < 1) return false;
+  const horizontal = Math.hypot(aimDirection.x, aimDirection.z) || 1;
+  const dumpHit = {
+    x: hit.x,
+    y: hit.y,
+    z: hit.z,
+    forwardX: aimDirection.x / horizontal,
+    forwardZ: aimDirection.z / horizontal,
+    kind: "terrain",
+  };
+  footsteps.dump(dumpHit);
+  dumpHit.y = collisionWorld.terrainHeightAt(dumpHit.x, dumpHit.z);
+  digBurst.spawn(dumpHit, itemId, { dump: true });
+  hud.markDirty();
+  return true;
 }
 
 const shovel = await createBeachShovel(
@@ -294,6 +322,10 @@ canvas.addEventListener("pointerdown", event => {
   if (hud.open || ui.handled) {
     looking = false;
     if (hud.open) document.exitPointerLock?.();
+    return;
+  }
+  if (event.button === 2) {
+    dumpOntoGround();
     return;
   }
   if (event.button !== 0) return;

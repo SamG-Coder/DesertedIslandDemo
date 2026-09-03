@@ -11,12 +11,13 @@ import { createWaterMaterial } from "./materials.mjs";
 import { HEIGHT_BOUNDS, WATER_LEVEL, terrainHeight } from "./terrain.mjs";
 
 const IMPRESSION_COUNT = 64;
-const DIG_COUNT = 128;
+const DIG_COUNT = 512;
 const MASK_SIZE = 1024;
 const MASK_WORLD_SIZE = 42;
 const DIG_RADIUS_X = 0.2;
 const DIG_RADIUS_Z = 0.26;
 const DIG_DEPTH = 0.16;
+const EDIT_MERGE_DISTANCE = 0.22;
 const TERRAIN_COLUMNS = 300;
 const TERRAIN_ROWS = 260;
 const TERRAIN_UV_SCALE = 0.24;
@@ -139,7 +140,7 @@ function createDigState(scene, heightMap) {
     rightX: 1,
     rightZ: 0,
     rimHeight: 0,
-    depth: DIG_DEPTH,
+    amount: 0,
     waterDepth: 0,
     seaConnected: false,
   }));
@@ -554,17 +555,46 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
     return erased;
   }
 
-  function digSand(hit) {
+  function holeDepth(record) {
+    return Math.max(0, -Number(record.amount) || 0);
+  }
+
+  function syncEditCollision(record) {
+    if (!record.active || Math.abs(record.amount) < 0.012) {
+      record.active = false;
+      record.waterDepth = 0;
+      collisionWorld?.setTerrainDepression?.(record.index, null);
+      digs.water.setMatrixAt(record.index, digs.hidden);
+      digs.water.instanceMatrix.needsUpdate = true;
+      return false;
+    }
+    collisionWorld?.setTerrainDepression?.(record.index, {
+      x: record.x,
+      z: record.z,
+      forwardX: record.forwardX,
+      forwardZ: record.forwardZ,
+      rightX: record.rightX,
+      rightZ: record.rightZ,
+      radiusX: DIG_RADIUS_X,
+      radiusZ: DIG_RADIUS_Z,
+      amount: record.amount,
+      depth: holeDepth(record),
+    });
+    return true;
+  }
+
+  function applySandEdit(hit, amount, label) {
     const x = Number(hit.x);
     const z = Number(hit.z);
     if (!Number.isFinite(x) || !Number.isFinite(z)) return false;
     let record = digs.records.find(candidate => candidate.active
-      && Math.hypot(candidate.x - x, candidate.z - z) < 0.16);
+      && Math.hypot(candidate.x - x, candidate.z - z) < EDIT_MERGE_DISTANCE);
     if (record) {
-      record.depth = Math.min(0.3, record.depth + 0.055);
-      record.rimHeight = Math.max(record.rimHeight, terrainHeight(x, z));
+      record.amount += amount;
+      record.rimHeight = terrainHeight(record.x, record.z);
     } else {
       record = digs.records[digPoolCursor()];
+      if (record.active) collisionWorld?.setTerrainDepression?.(record.index, null);
       record.active = true;
       record.x = x;
       record.z = z;
@@ -576,30 +606,35 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
       record.rightX = record.forwardZ;
       record.rightZ = -record.forwardX;
       record.rimHeight = terrainHeight(x, z);
-      record.depth = DIG_DEPTH;
+      record.amount = amount;
       record.waterDepth = 0;
     }
+    const hole = holeDepth(record);
     record.seaConnected = record.rimHeight <= WATER_LEVEL + 0.2
-      && record.rimHeight - record.depth < WATER_LEVEL;
-    const captured = surfaceWater?.removeStandingWater?.(x, z, 0.2) ?? 0;
-    record.waterDepth = Math.min(record.depth - 0.008, record.waterDepth + captured);
+      && record.rimHeight - hole < WATER_LEVEL;
+    if (amount < 0) {
+      const captured = surfaceWater?.removeStandingWater?.(x, z, 0.2) ?? 0;
+      record.waterDepth = Math.min(Math.max(0, hole - 0.008), record.waterDepth + captured);
+    } else {
+      record.waterDepth = Math.min(record.waterDepth, Math.max(0, hole - 0.008));
+    }
     const erasedFootprints = eraseFootprintsNearDig(record);
-    collisionWorld?.setTerrainDepression?.(record.index, {
-      x: record.x,
-      z: record.z,
-      forwardX: record.forwardX,
-      forwardZ: record.forwardZ,
-      rightX: record.rightX,
-      rightZ: record.rightZ,
-      radiusX: DIG_RADIUS_X,
-      radiusZ: DIG_RADIUS_Z,
-      depth: record.depth,
-    });
+    const kept = syncEditCollision(record);
     digs.lastEdited = record;
     rebuildTerrainGeometry();
     const erasedLabel = erasedFootprints > 0 ? ` · erased ${erasedFootprints} footprint(s)` : "";
-    console.log(`[First-Person Beach] Removed shovel-sized sand chunk at ${x.toFixed(2)}, ${z.toFixed(2)}${erasedLabel}`);
+    if (kept) {
+      console.log(`[First-Person Beach] ${label} at ${x.toFixed(2)}, ${z.toFixed(2)}${erasedLabel}`);
+    }
     return true;
+  }
+
+  function digSand(hit) {
+    return applySandEdit(hit, -DIG_DEPTH, "Removed shovel-sized sand chunk");
+  }
+
+  function dumpSand(hit) {
+    return applySandEdit(hit, DIG_DEPTH, "Dumped shovel-sized sand pile");
   }
 
   function digPoolCursor() {
@@ -621,19 +656,28 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
         const b = active[j];
         if (Math.hypot(a.x - b.x, a.z - b.z) > 0.48) continue;
         if (a.seaConnected || b.seaConnected) a.seaConnected = b.seaConnected = true;
-        const aSurface = a.rimHeight - a.depth + a.waterDepth;
-        const bSurface = b.rimHeight - b.depth + b.waterDepth;
+        const aHole = holeDepth(a);
+        const bHole = holeDepth(b);
+        const aSurface = a.rimHeight + a.amount + a.waterDepth;
+        const bSurface = b.rimHeight + b.amount + b.waterDepth;
         const transfer = THREE.MathUtils.clamp((aSurface - bSurface) * dt * 0.8, -0.02, 0.02);
-        a.waterDepth = THREE.MathUtils.clamp(a.waterDepth - transfer, 0, a.depth - 0.008);
-        b.waterDepth = THREE.MathUtils.clamp(b.waterDepth + transfer, 0, b.depth - 0.008);
+        a.waterDepth = THREE.MathUtils.clamp(a.waterDepth - transfer, 0, Math.max(0, aHole - 0.008));
+        b.waterDepth = THREE.MathUtils.clamp(b.waterDepth + transfer, 0, Math.max(0, bHole - 0.008));
       }
     }
 
     let matricesChanged = false;
     for (const record of active) {
-      const bottom = record.rimHeight - record.depth;
+      const depth = holeDepth(record);
+      if (depth <= 0.008) {
+        if (record.waterDepth > 0) matricesChanged = true;
+        record.waterDepth = 0;
+        digs.water.setMatrixAt(record.index, digs.hidden);
+        continue;
+      }
+      const bottom = record.rimHeight + record.amount;
       const seaDepth = record.seaConnected
-        ? THREE.MathUtils.clamp(WATER_LEVEL - bottom, 0, record.depth - 0.008)
+        ? THREE.MathUtils.clamp(WATER_LEVEL - bottom, 0, depth - 0.008)
         : 0;
       const runoffDepth = surfaceWater?.standingWaterDepthAt?.(record.x, record.z) ?? 0;
       // Wet sand is not standing water. A cut only exposes water when it
@@ -646,7 +690,7 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
       if (record.waterDepth > 0.006) {
         waterTransform.position.set(record.x, bottom + record.waterDepth + 0.004, record.z);
         waterTransform.rotation.set(0, Math.atan2(record.forwardX, record.forwardZ), 0);
-        const fill = THREE.MathUtils.clamp(record.waterDepth / record.depth, 0, 1);
+        const fill = THREE.MathUtils.clamp(record.waterDepth / depth, 0, 1);
         waterTransform.scale.set(DIG_RADIUS_X * (0.62 + fill * 0.28), 1, DIG_RADIUS_Z * (0.62 + fill * 0.28));
         waterTransform.updateMatrix();
         digs.water.setMatrixAt(record.index, waterTransform.matrix);
@@ -730,6 +774,7 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
   return {
     arm: audio.arm,
     dig: digSand,
+    dump: dumpSand,
     update(dt, view) {
       updateImpressions(dt, view);
       updateDigWater(dt);

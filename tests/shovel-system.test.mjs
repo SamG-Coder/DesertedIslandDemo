@@ -51,10 +51,10 @@ test("digging uses a simple right-to-left swing and shoulder follow-through", as
   const shovel = await readFile(join(sampleRoot, "src", "shovel-system.mjs"), "utf8");
   assert.match(shovel, /digAnimation\.trigger\(\)/);
   assert.match(shovel, /camera\.getWorldDirection\(aimDirection\)/);
-  assert.match(shovel, /collisionWorld\.sweepPoint\(aimOrigin, aimEnd, 0\.035\)/);
-  assert.match(shovel, /MAX_DIG_HORIZONTAL_REACH = 1\.5/);
-  assert.match(shovel, /collisionWorld\.groundHeightAt\(targetWorld\.x, targetWorld\.z\)/);
-  assert.match(shovel, /aimDirection\.y > -0\.12/);
+  assert.match(shovel, /collisionWorld\.raycastSurface/);
+  assert.match(shovel, /TOOL_AIM_DISTANCE/);
+  assert.doesNotMatch(shovel, /MAX_DIG_HORIZONTAL_REACH/);
+  assert.doesNotMatch(shovel, /aimDirection\.y > -0\.12/);
   assert.match(shovel, /SWING_START_POSITION = new THREE\.Vector3\(0\.36/);
   assert.match(shovel, /SWING_END_POSITION = new THREE\.Vector3\(-0\.54/);
   assert.match(shovel, /SHOULDER_POSITION = new THREE\.Vector3\(-0\.38, 0\.32/);

@@ -117,6 +117,12 @@ test("main wires first-person controls and hybrid RTX lighting without HTML over
   assert.match(main, /createInventoryHud/);
   assert.match(main, /nativeOverlay: !isBrowserHost\(\)/);
   assert.match(main, /collectFromDig/);
+  assert.match(main, /dumpOntoGround/);
+  assert.match(main, /event\.button === 2/);
+  assert.match(main, /footsteps\.dump/);
+  assert.match(main, /inventory\.remove/);
+  assert.match(main, /dump: true/);
+  assert.match(main, /dumpableSandId/);
   assert.match(main, /createDigBurstSystem/);
   assert.match(main, /classifyDigBurst/);
   assert.match(main, /digBurst\.spawn/);
@@ -209,6 +215,9 @@ test("walking has native surface audio and pooled sand impressions", async () =>
   assert.doesNotMatch(footsteps, /Persistent shovel-sized terrain cuts/);
   assert.match(footsteps, /Water retained inside shovel cuts/);
   assert.match(footsteps, /function digSand\(hit\)/);
+  assert.match(footsteps, /function dumpSand\(hit\)/);
+  assert.match(footsteps, /function applySandEdit\(hit, amount/);
+  assert.doesNotMatch(footsteps, /Math\.min\(0\.3, record\.depth/);
   assert.match(footsteps, /function eraseFootprintsNearDig\(record\)/);
   assert.match(footsteps, /pool\.mesh\.setMatrixAt\(index, pool\.hidden\)/);
   assert.match(footsteps, /maskDirty = true/);
@@ -238,6 +247,8 @@ test("player gravity and solid dressing collisions remain runtime-owned", async 
   assert.match(controller, /GRAVITY/);
   assert.match(controller, /collisionWorld\.resolveMovement/);
   assert.match(collision, /PLAYER_RADIUS/);
+  assert.match(collision, /TOOL_AIM_DISTANCE/);
+  assert.match(collision, /raycastSurface/);
   assert.match(collision, /kind: "palm"/);
   assert.match(collision, /name\.includes\("rock"\)/);
   assert.match(collision, /name\.includes\("driftwood"\)/);

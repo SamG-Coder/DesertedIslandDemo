@@ -1,6 +1,7 @@
 import * as THREE from "three/webgpu";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { createCarryableObject } from "./carryable-system.mjs";
+import { TOOL_AIM_DISTANCE } from "./collision-system.mjs";
 
 const READY_POSITION = new THREE.Vector3(-0.58, 0.06, -0.68);
 const READY_ROTATION = new THREE.Euler(-0.18, 0.12, -2.02, "XYZ");
@@ -11,10 +12,7 @@ const SHOULDER_POSITION = new THREE.Vector3(-0.38, 0.32, -0.42);
 const SWING_START_ROTATION = new THREE.Euler(-0.24, 0.08, -0.58, "XYZ");
 const SWING_END_ROTATION = new THREE.Euler(-0.12, 0.1, -1.62, "XYZ");
 const SHOULDER_ROTATION = new THREE.Euler(-0.42, 0.18, -2.68, "XYZ");
-// Trace far enough to learn which patch of ground the player is looking at,
-// then constrain the actual strike to a believable first-person shovel reach.
-const DIG_AIM_TRACE = 12;
-const MAX_DIG_HORIZONTAL_REACH = 1.5;
+const DIG_AIM_TRACE = TOOL_AIM_DISTANCE;
 
 const WINDUP_SECONDS = 0.2;
 const SWING_SECONDS = 0.34;
@@ -33,8 +31,6 @@ function createDigAnimation(object, camera, collisionWorld, isCarried, onDig) {
   const readyPosition = new THREE.Vector3();
   const aimOrigin = new THREE.Vector3();
   const aimDirection = new THREE.Vector3();
-  const aimEnd = new THREE.Vector3();
-  const reachableDirection = new THREE.Vector3();
   const targetWorld = new THREE.Vector3();
   const startRotation = new THREE.Quaternion();
   const phaseStartRotation = new THREE.Quaternion();
@@ -69,35 +65,19 @@ function createDigAnimation(object, camera, collisionWorld, isCarried, onDig) {
     },
     trigger() {
       if (!isCarried() || phase !== "idle") return false;
-      startPosition.copy(object.position);
-      startRotation.copy(object.quaternion);
       camera.getWorldPosition(aimOrigin);
       camera.getWorldDirection(aimDirection);
-      // Digging is deliberately a downward action. This also prevents a level
-      // click from playing a disconnected shovel animation against empty air.
-      if (aimDirection.y > -0.12) return false;
-      aimEnd.copy(aimDirection).multiplyScalar(DIG_AIM_TRACE).add(aimOrigin);
-      const aimedContact = collisionWorld.sweepPoint(aimOrigin, aimEnd, 0.035);
-      if (aimedContact) {
-        targetWorld.set(aimedContact.x, aimedContact.y, aimedContact.z);
-        targetKind = aimedContact.kind;
-      } else {
-        targetWorld.copy(aimEnd);
-        targetKind = "terrain";
-      }
-
-      // Preserve the aimed compass direction, but do not let a shallow view
-      // turn a hand-held spade into a long-range tool. Steep downward views
-      // naturally retain their closer ray/ground intersection.
-      reachableDirection.set(targetWorld.x - aimOrigin.x, 0, targetWorld.z - aimOrigin.z);
-      const horizontalDistance = reachableDirection.length();
-      if (horizontalDistance > MAX_DIG_HORIZONTAL_REACH) {
-        reachableDirection.multiplyScalar(MAX_DIG_HORIZONTAL_REACH / horizontalDistance);
-        targetWorld.x = aimOrigin.x + reachableDirection.x;
-        targetWorld.z = aimOrigin.z + reachableDirection.z;
-        targetWorld.y = collisionWorld.groundHeightAt(targetWorld.x, targetWorld.z);
-        targetKind = "terrain";
-      }
+      const aimedContact = collisionWorld.raycastSurface?.(aimOrigin, aimDirection, DIG_AIM_TRACE)
+        ?? collisionWorld.sweepPoint(
+          aimOrigin,
+          aimDirection.clone().multiplyScalar(DIG_AIM_TRACE).add(aimOrigin),
+          0.035,
+        );
+      if (!aimedContact) return false;
+      startPosition.copy(object.position);
+      startRotation.copy(object.quaternion);
+      targetWorld.set(aimedContact.x, aimedContact.y, aimedContact.z);
+      targetKind = aimedContact.kind;
       phase = "windup";
       phaseTime = 0;
       return true;

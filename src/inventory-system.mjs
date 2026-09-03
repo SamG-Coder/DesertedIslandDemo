@@ -65,6 +65,14 @@ export function harvestItemId({ kind, surface } = {}) {
   return null;
 }
 
+export function dumpableSandId(inventory) {
+  const selected = inventory?.selectedItemId?.();
+  if (selected === "dry-sand" || selected === "wet-sand") return selected;
+  if (inventory?.findItem?.("dry-sand") >= 0) return "dry-sand";
+  if (inventory?.findItem?.("wet-sand") >= 0) return "wet-sand";
+  return null;
+}
+
 export function hotbarIndexFromCode(code) {
   const value = String(code || "");
   const digit = value.startsWith("Digit") ? Number(value.slice(5))

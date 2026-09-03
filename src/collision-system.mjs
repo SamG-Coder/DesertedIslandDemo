@@ -2,8 +2,35 @@ import * as THREE from "three/webgpu";
 import { terrainHeight } from "./terrain.mjs";
 
 export const PLAYER_RADIUS = 0.31;
+export const TOOL_AIM_DISTANCE = 64;
 const STEP_CLEARANCE = 0.08;
 const MAX_TOOL_SWEEP_STEPS = 64;
+const RAY_STEP = 0.1;
+
+function signedAmount(record) {
+  const amount = Number(record?.amount);
+  if (Number.isFinite(amount)) return amount;
+  const depth = Number(record?.depth);
+  return Number.isFinite(depth) ? -depth : 0;
+}
+
+function editWeight(record, x, z) {
+  const radiusX = Math.max(1e-4, Number(record.radiusX) || 0.2);
+  const radiusZ = Math.max(1e-4, Number(record.radiusZ) || 0.26);
+  const dx = x - record.x;
+  const dz = z - record.z;
+  const localX = dx * record.rightX + dz * record.rightZ;
+  const localZ = dx * record.forwardX + dz * record.forwardZ;
+  const q = Math.pow(Math.abs(localX) / radiusX, 3)
+    + Math.pow(Math.abs(localZ) / radiusZ, 3);
+  if (q >= 1) return 0;
+  if (signedAmount(record) >= 0) {
+    const t = THREE.MathUtils.smoothstep(q, 0, 1);
+    return (1 - t) * (1 - t);
+  }
+  const edge = THREE.MathUtils.smoothstep(q, 0.32, 1);
+  return 1 - edge;
+}
 
 function circleIntersectsBox(x, z, radius, box) {
   const closestX = THREE.MathUtils.clamp(x, box.min.x, box.max.x);
@@ -66,20 +93,14 @@ export function createBeachCollisionWorld(world) {
   }
 
   function terrainSurfaceHeight(x, z) {
-    let depression = 0;
+    let offset = 0;
     for (const record of terrainDepressions) {
       if (!record) continue;
-      const dx = x - record.x;
-      const dz = z - record.z;
-      const localX = dx * record.rightX + dz * record.rightZ;
-      const localZ = dx * record.forwardX + dz * record.forwardZ;
-      const q = Math.pow(Math.abs(localX) / record.radiusX, 3)
-        + Math.pow(Math.abs(localZ) / record.radiusZ, 3);
-      if (q >= 1) continue;
-      const edge = THREE.MathUtils.smoothstep(q, 0.32, 1);
-      depression = Math.max(depression, record.depth * (1 - edge));
+      const weight = editWeight(record, x, z);
+      if (weight <= 0) continue;
+      offset += signedAmount(record) * weight;
     }
-    return terrainHeight(x, z) - depression;
+    return terrainHeight(x, z) + offset;
   }
 
   function supportAt(x, z) {
@@ -99,7 +120,7 @@ export function createBeachCollisionWorld(world) {
     return { height, kind };
   }
 
-  function pointContact(x, y, z, radius = 0.055) {
+  function propContact(x, y, z, radius = 0.055) {
     for (const collider of colliders) {
       if (y + radius < collider.minY || y - radius > collider.maxY) continue;
       if (collider.shape === "cylinder") {
@@ -114,8 +135,39 @@ export function createBeachCollisionWorld(world) {
         return { kind: collider.kind, collider, x, y, z };
       }
     }
+    return null;
+  }
+
+  function pointContact(x, y, z, radius = 0.055) {
+    const prop = propContact(x, y, z, radius);
+    if (prop) return prop;
     const groundY = terrainSurfaceHeight(x, z);
     if (y - radius <= groundY) return { kind: "terrain", collider: null, x, y: groundY, z };
+    return null;
+  }
+
+  function raycastSurface(origin, direction, maxDistance = TOOL_AIM_DISTANCE, radius = 0.035) {
+    const ox = Number(origin.x) || 0;
+    const oy = Number(origin.y) || 0;
+    const oz = Number(origin.z) || 0;
+    const length = Math.hypot(direction.x, direction.y, direction.z) || 1;
+    const dx = direction.x / length;
+    const dy = direction.y / length;
+    const dz = direction.z / length;
+    const range = Math.max(0.2, Number(maxDistance) || TOOL_AIM_DISTANCE);
+    const steps = Math.max(1, Math.ceil(range / RAY_STEP));
+    for (let index = 1; index <= steps; index += 1) {
+      const t = Math.min(range, index * RAY_STEP);
+      const x = ox + dx * t;
+      const y = oy + dy * t;
+      const z = oz + dz * t;
+      const prop = propContact(x, y, z, radius);
+      if (prop) return { ...prop, alpha: t / range };
+      const groundY = terrainSurfaceHeight(x, z);
+      if (y - radius <= groundY) {
+        return { kind: "terrain", collider: null, x, y: groundY, z, alpha: t / range };
+      }
+    }
     return null;
   }
 
@@ -146,9 +198,10 @@ export function createBeachCollisionWorld(world) {
     },
     terrainHeightAt: terrainSurfaceHeight,
     setTerrainDepression(index, depression) {
-      terrainDepressions[index] = { ...depression };
+      terrainDepressions[index] = depression ? { ...depression } : null;
     },
     pointContact,
+    raycastSurface,
     sweepPoint,
     resolveMovement(fromX, fromZ, toX, toZ, feetY) {
       let x = fromX;

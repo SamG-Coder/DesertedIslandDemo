@@ -287,7 +287,7 @@ export function createDigBurstSystem(scene, collisionWorld, random = Math.random
     if (grainsLive === 0) grains.visible = false;
   }
 
-  function emitGrain(origin, forwardX, forwardZ, preset, floor) {
+  function emitGrain(origin, forwardX, forwardZ, preset, floor, dumping) {
     const index = grainCursor;
     grainCursor = (grainCursor + 1) % GRAIN_COUNT;
     const particle = grainState[index];
@@ -303,14 +303,14 @@ export function createDigBurstSystem(scene, collisionWorld, random = Math.random
     const side = random() * 2 - 1;
     const along = 0.22 + random();
     particle.vx = forwardX * preset.speed * along * toward + side * preset.spread * (random() * 0.7 + 0.3);
-    particle.vy = preset.lift * (0.45 + random() * 0.85);
+    particle.vy = preset.lift * (dumping ? 0.18 : 1) * (0.45 + random() * 0.85);
     particle.vz = forwardZ * preset.speed * along * toward + (random() * 2 - 1) * preset.spread * 0.65;
     particle.spinX = (random() * 2 - 1) * 10;
     particle.spinY = (random() * 2 - 1) * 12;
     particle.spinZ = (random() * 2 - 1) * 9;
     dummy.position.set(
       origin.x + (random() * 2 - 1) * 0.07,
-      origin.y + random() * 0.05,
+      origin.y + random() * (dumping ? 0.18 : 0.05),
       origin.z + (random() * 2 - 1) * 0.07,
     );
     dummy.rotation.set(random() * Math.PI, random() * Math.PI, random() * Math.PI);
@@ -326,13 +326,16 @@ export function createDigBurstSystem(scene, collisionWorld, random = Math.random
     get live() {
       return { grains: grainsLive, dust: dust.live, drops: drops.live };
     },
-    spawn(hit, kind = "dry-sand") {
+    spawn(hit, kind = "dry-sand", options = {}) {
+      const dumping = Boolean(options.dump);
       const preset = DIG_BURST_PRESETS[kind] ?? DIG_BURST_PRESETS["dry-sand"];
       const floor = kind === "water" ? "water" : "ground";
       const hitY = Number(hit.y) || 0;
       const origin = {
         x: Number(hit.x) || 0,
-        y: kind === "water" ? Math.max(hitY, WATER_LEVEL) + 0.04 : hitY + 0.045,
+        y: kind === "water"
+          ? Math.max(hitY, WATER_LEVEL) + 0.04
+          : hitY + (dumping ? 0.28 : 0.045),
         z: Number(hit.z) || 0,
       };
       let forwardX = Number(hit.forwardX) || 0;
@@ -340,7 +343,9 @@ export function createDigBurstSystem(scene, collisionWorld, random = Math.random
       const length = Math.hypot(forwardX, forwardZ) || 1;
       forwardX /= length;
       forwardZ /= length;
-      for (let i = 0; i < preset.grains; i += 1) emitGrain(origin, forwardX, forwardZ, preset, floor);
+      for (let i = 0; i < preset.grains; i += 1) {
+        emitGrain(origin, forwardX, forwardZ, preset, floor, dumping);
+      }
       for (let i = 0; i < preset.dust; i += 1) {
         dust.emit(origin, forwardX, forwardZ, preset, preset.dustColors, random, floor, "dust");
       }

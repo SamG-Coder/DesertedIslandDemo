@@ -56,6 +56,37 @@ test("palm trunks block and boxes support or slide a player capsule", () => {
     depth: 0.16,
   });
   assert.ok(collision.groundHeightAt(-4, -18) < originalHeight - 0.15);
+  collision.setTerrainDepression(0, {
+    x: -4,
+    z: -18,
+    forwardX: 0,
+    forwardZ: 1,
+    rightX: 1,
+    rightZ: 0,
+    radiusX: 0.2,
+    radiusZ: 0.26,
+    amount: 0.16,
+  });
+  assert.ok(collision.groundHeightAt(-4, -18) > originalHeight + 0.12);
+  collision.setTerrainDepression(1, {
+    x: -4,
+    z: -18,
+    forwardX: 0,
+    forwardZ: 1,
+    rightX: 1,
+    rightZ: 0,
+    radiusX: 0.2,
+    radiusZ: 0.26,
+    amount: -0.16,
+  });
+  assert.ok(Math.abs(collision.groundHeightAt(-4, -18) - originalHeight) < 0.03);
+  collision.setTerrainDepression(0, null);
+  collision.setTerrainDepression(1, null);
+  const from = new THREE.Vector3(-8, 12, 6);
+  const farHit = collision.raycastSurface(from, new THREE.Vector3(0, -1, 0), 64);
+  assert.equal(farHit.kind, "terrain");
+  assert.ok(Math.abs(farHit.z - 6) < 0.2);
+  assert.ok(Math.abs(farHit.y - collision.groundHeightAt(-8, 6)) < 0.15);
 
   const rockHit = collision.sweepPoint(
     new THREE.Vector3(rockX - 2, support.height - 0.25, rockZ),

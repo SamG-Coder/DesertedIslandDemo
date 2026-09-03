@@ -4,6 +4,7 @@ import {
   HOTBAR_SIZE,
   MAX_STACK,
   createInventory,
+  dumpableSandId,
   harvestItemId,
   hotbarIndexFromCode,
 } from "../src/inventory-system.mjs";
@@ -21,6 +22,18 @@ test("harvested sand and rock map to stackable inventory items", () => {
   assert.equal(harvestItemId({ kind: "rock", surface: "dry-sand" }), "rock");
   assert.equal(harvestItemId({ kind: "wood", surface: "dry-sand" }), null);
   assert.equal(harvestItemId({ kind: "palm" }), null);
+});
+
+test("dumping spends selected sand, otherwise the first sand stack", () => {
+  const inventory = createInventory();
+  assert.equal(dumpableSandId(inventory), null);
+  inventory.add("wet-sand", 3);
+  inventory.add("dry-sand", 2);
+  assert.equal(dumpableSandId(inventory), "wet-sand");
+  inventory.selectHotbar(1);
+  assert.equal(dumpableSandId(inventory), "dry-sand");
+  assert.equal(inventory.remove("dry-sand", 1), 1);
+  assert.equal(inventory.selectedSlot().count, 1);
 });
 
 test("hotbar keys 1-9 select the focused equipment slot", () => {
