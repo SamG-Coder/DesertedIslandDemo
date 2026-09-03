@@ -285,6 +285,12 @@
       "bytes": 0
     },
     {
+      "url": "https://deserted-island.runtime.threebrowser.local/preview.jpg",
+      "path": "preview.jpg",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
       "url": "https://deserted-island.runtime.threebrowser.local/scripts/verify-pages-build.mjs",
       "path": "scripts/verify-pages-build.mjs",
       "type": "module",

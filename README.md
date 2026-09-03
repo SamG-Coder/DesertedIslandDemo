@@ -1,5 +1,9 @@
 # Deserted Island
 
+<p align="center">
+  <img src="./preview.jpg" alt="Sunset over the island shore, shovel standing in the sand" width="1200">
+</p>
+
 A walkable first-person tropical island for **ThreeBrowser Runtime** and
 **desktop browsers with WebGPU**. The same source paints one canvas: dunes,
 tiled sand and greywacke rocks, coconut palms, Gerstner water, a day/night

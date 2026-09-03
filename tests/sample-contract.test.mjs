@@ -40,6 +40,7 @@ test("manifest registers a portable WebGPU deserted island", async () => {
   for (const file of [
     "LICENSE",
     "THIRD_PARTY_NOTICES.md",
+    "preview.jpg",
     "index.html",
     "native.html",
     "site-entry.mjs",
