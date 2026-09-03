@@ -9,8 +9,20 @@
   "requiresWebGPU": true,
   "files": [
     {
+      "url": "https://deserted-island.runtime.threebrowser.local/LICENSE",
+      "path": "LICENSE",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
       "url": "https://deserted-island.runtime.threebrowser.local/README.md",
       "path": "README.md",
+      "type": "text",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/THIRD_PARTY_NOTICES.md",
+      "path": "THIRD_PARTY_NOTICES.md",
       "type": "text",
       "bytes": 0
     },

@@ -85,3 +85,11 @@ Regenerate the native manifest after adding files:
 ```powershell
 npm run manifest
 ```
+
+## License
+
+Deserted Island is **MIT**. See `LICENSE`.
+
+Third-party code redistributed with the browser and native builds is **Three.js**
+and **threepp** (via ThreeBrowser Runtime). Both are also MIT; their copyright
+notices are in `THIRD_PARTY_NOTICES.md`.

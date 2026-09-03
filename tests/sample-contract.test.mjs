@@ -38,6 +38,8 @@ test("manifest registers a portable WebGPU deserted island", async () => {
   assert.equal(manifest.compatibility.htmlOverlay, false);
   assert.equal(manifest.compatibility.domRequired, false);
   for (const file of [
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
     "index.html",
     "native.html",
     "site-entry.mjs",

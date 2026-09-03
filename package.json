@@ -2,6 +2,7 @@
   "name": "deserted-island-demo",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "description": "First-person deserted island WebGPU demo for ThreeBrowser Runtime and GitHub Pages.",
   "scripts": {
