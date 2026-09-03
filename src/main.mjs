@@ -30,11 +30,22 @@ export async function startDesertedIsland({ onProgress } = {}) {
 document.title = "Deserted Island — ThreeBrowser";
 await reportProgress(onProgress, "Starting renderer", 0.08);
 
-const MAX_INTERNAL_PIXELS = 5_300_000;
+const RTX_INTERNAL_PIXELS = 5_300_000;
+const RASTER_INTERNAL_PIXELS = 2560 * 1440;
 const MAX_INTERNAL_RATIO = 2.25;
 
+function hasNativeRays() {
+  const bridge = navigator.gpu?.threeBrowserRTX;
+  return typeof bridge?.evaluateRayLighting === "function"
+    || typeof bridge?.evaluateRayReflections === "function";
+}
+
 function chooseInternalRatio(width, height) {
-  const budgetRatio = Math.sqrt(MAX_INTERNAL_PIXELS / Math.max(1, width * height));
+  const cssPixels = Math.max(1, width * height);
+  if (!hasNativeRays()) {
+    return Math.min(1, Math.sqrt(RASTER_INTERNAL_PIXELS / cssPixels));
+  }
+  const budgetRatio = Math.sqrt(RTX_INTERNAL_PIXELS / cssPixels);
   return Math.min(MAX_INTERNAL_RATIO, budgetRatio);
 }
 
@@ -126,6 +137,7 @@ const hud = createInventoryHud({
     "wet-sand": maps["wet-sand"]?.albedo,
     rock: maps["coastal-rock"]?.albedo,
   },
+  nativeOverlay: !isBrowserHost(),
 });
 hud.resize(innerWidth, innerHeight, displayPixelRatio);
 
@@ -387,7 +399,7 @@ renderer.setAnimationLoop(() => {
   footsteps.update(dt, view);
   syncShovelEquipment();
   shovel.update(dt);
-  hud.sync();
+  hud.sync(renderer);
 
   world.sun.updateWorldMatrix(true, false);
   world.sun.target.updateWorldMatrix(true, false);
@@ -423,7 +435,7 @@ renderer.setAnimationLoop(() => {
     nativeReady = false;
     rendered = rtxRenderer.renderRaster(scene, camera);
   }
-  if (!rtxRenderer.present(hud.texture)) {
+  if (!rtxRenderer.present(hud.frame())) {
     renderer.setRenderTarget(null);
     renderer.setMRT(null);
     renderer.render(scene, camera);

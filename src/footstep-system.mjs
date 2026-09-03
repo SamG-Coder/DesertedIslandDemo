@@ -609,12 +609,17 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
   }
 
   function updateDigWater(dt) {
-    for (let i = 0; i < digs.records.length; i += 1) {
-      const a = digs.records[i];
-      if (!a.active) continue;
-      for (let j = i + 1; j < digs.records.length; j += 1) {
-        const b = digs.records[j];
-        if (!b.active || Math.hypot(a.x - b.x, a.z - b.z) > 0.48) continue;
+    const active = [];
+    for (const record of digs.records) {
+      if (record.active) active.push(record);
+    }
+    if (!active.length) return;
+
+    for (let i = 0; i < active.length; i += 1) {
+      const a = active[i];
+      for (let j = i + 1; j < active.length; j += 1) {
+        const b = active[j];
+        if (Math.hypot(a.x - b.x, a.z - b.z) > 0.48) continue;
         if (a.seaConnected || b.seaConnected) a.seaConnected = b.seaConnected = true;
         const aSurface = a.rimHeight - a.depth + a.waterDepth;
         const bSurface = b.rimHeight - b.depth + b.waterDepth;
@@ -624,8 +629,8 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
       }
     }
 
-    for (const record of digs.records) {
-      if (!record.active) continue;
+    let matricesChanged = false;
+    for (const record of active) {
       const bottom = record.rimHeight - record.depth;
       const seaDepth = record.seaConnected
         ? THREE.MathUtils.clamp(WATER_LEVEL - bottom, 0, record.depth - 0.008)
@@ -635,7 +640,9 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
       // reaches the sea table or runoff actually enters the depression.
       const targetDepth = Math.max(seaDepth, runoffDepth);
       const rate = targetDepth > record.waterDepth ? 0.08 : 0.025;
-      record.waterDepth = THREE.MathUtils.damp(record.waterDepth, targetDepth, rate * 60, dt);
+      const nextDepth = THREE.MathUtils.damp(record.waterDepth, targetDepth, rate * 60, dt);
+      if (Math.abs(nextDepth - record.waterDepth) > 1e-5) matricesChanged = true;
+      record.waterDepth = nextDepth;
       if (record.waterDepth > 0.006) {
         waterTransform.position.set(record.x, bottom + record.waterDepth + 0.004, record.z);
         waterTransform.rotation.set(0, Math.atan2(record.forwardX, record.forwardZ), 0);
@@ -643,11 +650,12 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
         waterTransform.scale.set(DIG_RADIUS_X * (0.62 + fill * 0.28), 1, DIG_RADIUS_Z * (0.62 + fill * 0.28));
         waterTransform.updateMatrix();
         digs.water.setMatrixAt(record.index, waterTransform.matrix);
+        matricesChanged = true;
       } else {
         digs.water.setMatrixAt(record.index, digs.hidden);
       }
     }
-    digs.water.instanceMatrix.needsUpdate = true;
+    if (matricesChanged) digs.water.instanceMatrix.needsUpdate = true;
   }
 
   function surfaceAt(x, z) {

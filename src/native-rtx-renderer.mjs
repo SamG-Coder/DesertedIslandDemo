@@ -8,6 +8,7 @@ import {
   normalWorld,
   output,
   roughness,
+  uniform,
   vec3,
   vec4,
 } from "three/tsl";
@@ -156,6 +157,32 @@ export class NativeRtxRenderer {
     this._hudQuad.visible = false;
     this._displayScene.add(this._hudQuad);
 
+    this._overlayAlpha = uniform(0);
+    this._overlayMaterial = new THREE.MeshBasicNodeMaterial({
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+      fog: false,
+    });
+    this._overlayMaterial.toneMapped = false;
+    this._overlayMaterial.colorNode = vec4(0.02, 0.035, 0.055, this._overlayAlpha);
+    this._overlayQuad = new THREE.Mesh(this._displayGeometry, this._overlayMaterial);
+    this._overlayQuad.frustumCulled = false;
+    this._overlayQuad.renderOrder = 0.5;
+    this._overlayQuad.visible = false;
+    this._displayScene.add(this._overlayQuad);
+
+    this._cursorGeometry = new THREE.PlaneGeometry(2, 2);
+    const cursorUvs = this._cursorGeometry.getAttribute("uv");
+    for (let index = 0; index < cursorUvs.count; ++index) cursorUvs.setY(index, 1 - cursorUvs.getY(index));
+    cursorUvs.needsUpdate = true;
+    this._cursorMaterial = this._hudPlaceholderMaterial;
+    this._cursorQuad = new THREE.Mesh(this._cursorGeometry, this._cursorMaterial);
+    this._cursorQuad.frustumCulled = false;
+    this._cursorQuad.renderOrder = 2;
+    this._cursorQuad.visible = false;
+    this._displayScene.add(this._cursorQuad);
+
     this._viewProjection = new THREE.Matrix4();
     this._inverseViewProjection = new THREE.Matrix4();
     this._cameraPosition = new THREE.Vector3();
@@ -200,6 +227,28 @@ export class NativeRtxRenderer {
     if (this._hudMaterial === material) return;
     this._hudMaterial = material;
     this._hudQuad.material = material;
+  }
+
+  _placeHudQuad(mesh, rect, viewWidth, viewHeight) {
+    if (!rect || !viewWidth || !viewHeight) {
+      mesh.position.set(0, 0, 0);
+      mesh.scale.set(1, 1, 1);
+      return;
+    }
+    const x0 = (rect.x / viewWidth) * 2 - 1;
+    const x1 = ((rect.x + rect.width) / viewWidth) * 2 - 1;
+    const y0 = 1 - (rect.y / viewHeight) * 2;
+    const y1 = 1 - ((rect.y + rect.height) / viewHeight) * 2;
+    mesh.position.set((x0 + x1) * 0.5, (y0 + y1) * 0.5, 0);
+    mesh.scale.set(Math.max(1e-4, (x1 - x0) * 0.5), Math.max(1e-4, (y0 - y1) * 0.5), 1);
+  }
+
+  _normalizeHud(hud) {
+    if (!hud) return null;
+    if (hud.isTexture) {
+      return { texture: hud, rect: null, overlay: 0, cursorTexture: null, cursorRect: null };
+    }
+    return hud;
   }
 
   _displayMaterialFor(texture) {
@@ -607,7 +656,28 @@ export class NativeRtxRenderer {
         presentationTexture = this.sceneTarget.textures[1];
       }
       this._setDisplayTexture(presentationTexture);
-      this._setHudTexture(hudTexture);
+      const hud = this._normalizeHud(hudTexture);
+      const hudMap = hud?.texture ?? null;
+      this._setHudTexture(hudMap);
+      this._placeHudQuad(
+        this._hudQuad,
+        hud?.rect ?? null,
+        hud?.viewWidth ?? 0,
+        hud?.viewHeight ?? 0,
+      );
+      const overlay = Math.max(0, Math.min(1, Number(hud?.overlay) || 0));
+      this._overlayAlpha.value = overlay;
+      this._overlayQuad.visible = overlay > 0.001;
+      const cursorMap = hud?.cursorTexture ?? null;
+      const cursorMaterial = this._hudMaterialFor(cursorMap);
+      if (this._cursorMaterial !== cursorMaterial) {
+        this._cursorMaterial = cursorMaterial;
+        this._cursorQuad.material = cursorMaterial;
+      }
+      this._cursorQuad.visible = Boolean(cursorMap && hud?.cursorRect);
+      if (this._cursorQuad.visible) {
+        this._placeHudQuad(this._cursorQuad, hud.cursorRect, hud.viewWidth, hud.viewHeight);
+      }
       this.renderer.setRenderTarget(null);
       this.renderer.setMRT(null);
       const previousAutoClear = this.renderer.autoClear;
@@ -678,5 +748,7 @@ export class NativeRtxRenderer {
     this._hudMaterialCache.clear();
     this._hudPlaceholderMaterial.dispose();
     this._hudMaterial = null;
+    this._overlayMaterial.dispose();
+    this._cursorGeometry.dispose();
   }
 }

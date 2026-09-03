@@ -7,7 +7,12 @@ import {
   harvestItemId,
   hotbarIndexFromCode,
 } from "../src/inventory-system.mjs";
-import { layoutInventoryHud as layoutHud } from "../src/inventory-hud.mjs";
+import {
+  cssRectToPixelRect,
+  hudAtlasBounds,
+  layoutInventoryHud as layoutHud,
+  mergeDirtyRects,
+} from "../src/inventory-hud.mjs";
 
 test("harvested sand and rock map to stackable inventory items", () => {
   assert.equal(harvestItemId({ kind: "terrain", surface: "dry-sand" }), "dry-sand");
@@ -119,4 +124,22 @@ test("the canvas HUD keeps storage on top and the hotbar along the bottom", () =
   assert.equal(open.storage[0].index, 0);
   assert.equal(open.hotbar[8].index, inventory.size - 1);
   assert.ok(open.panel.width > open.storage[8].x - open.storage[0].x);
+  const closedAtlas = hudAtlasBounds(closed);
+  const openAtlas = hudAtlasBounds(open);
+  assert.ok(closedAtlas.width * closedAtlas.height < 1280 * 720 * 0.12);
+  assert.ok(openAtlas.width * openAtlas.height < 1280 * 720 * 0.45);
+  assert.ok(closedAtlas.y > 720 * 0.65);
+});
+
+test("HUD dirty rects merge overlaps and convert to canvas pixels", () => {
+  const merged = mergeDirtyRects([
+    { x: 10, y: 10, width: 20, height: 20 },
+    { x: 20, y: 12, width: 20, height: 20 },
+    { x: 200, y: 200, width: 8, height: 8 },
+  ]);
+  assert.equal(merged.length, 2);
+  assert.equal(merged[0].x, 10);
+  assert.equal(merged[0].width, 30);
+  const pixels = cssRectToPixelRect({ x: 100, y: 50, width: 10, height: 10 }, { x: 90, y: 40 }, 2);
+  assert.deepEqual(pixels, { x: 20, y: 20, width: 20, height: 20 });
 });

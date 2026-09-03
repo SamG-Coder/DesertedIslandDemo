@@ -87,7 +87,8 @@ function createWater(scene, heightMap, foamField) {
   water.name = "Displaced tropical water";
   water.position.y = WATER_LEVEL;
   water.renderOrder = 4;
-  water.frustumCulled = false;
+  water.frustumCulled = true;
+  water.geometry.computeBoundingSphere();
   water.userData.rtxIgnore = true;
   scene.add(water);
   return water;
