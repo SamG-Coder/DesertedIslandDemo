@@ -53,7 +53,10 @@ Always launch `site-entry.mjs`, not `src/main.mjs`. The sibling
 demo module loads.
 
 Native Runtime is canvas-only: controls and RTX path are reported on stdout.
-Browsers show a short boot card, then the same canvas.
+Browsers show a determinate loading card. Texture decode uses `createImageBitmap`
+where available, work yields between stages, and shaders compile through
+`compileAsync` so the tab can keep painting. Native Runtime logs the same
+stages on stdout; it still presents one swapchain image with no HTML overlay.
 
 ## Controls
 

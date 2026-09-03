@@ -285,6 +285,12 @@
       "bytes": 0
     },
     {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/async-load.mjs",
+      "path": "src/async-load.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
       "url": "https://deserted-island.runtime.threebrowser.local/src/carryable-system.mjs",
       "path": "src/carryable-system.mjs",
       "type": "module",
@@ -401,6 +407,12 @@
     {
       "url": "https://deserted-island.runtime.threebrowser.local/src/weather.mjs",
       "path": "src/weather.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/async-load.test.mjs",
+      "path": "tests/async-load.test.mjs",
       "type": "module",
       "bytes": 0
     },

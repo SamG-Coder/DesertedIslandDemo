@@ -33,6 +33,7 @@ import {
   vec4,
 } from "three/tsl";
 import { HEIGHT_BOUNDS, WATER_LEVEL } from "./terrain.mjs";
+import { loadTextureAsync, mapPool, reportProgress, yieldToBrowser } from "./async-load.mjs";
 import { cloudShadowNode } from "./weather.mjs";
 export const waterTime = uniform(0);
 export const waterLevel = uniform(WATER_LEVEL);
@@ -73,16 +74,7 @@ function tag(material, reflectionMask, extras = {}) {
 }
 
 async function loadMap(url, { srgb = false, wrap = THREE.RepeatWrapping } = {}) {
-  const textureMap = await new THREE.TextureLoader().loadAsync(url.href || url);
-  textureMap.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
-  textureMap.wrapS = wrap;
-  textureMap.wrapT = wrap;
-  textureMap.anisotropy = 8;
-  textureMap.generateMipmaps = true;
-  textureMap.minFilter = THREE.LinearMipmapLinearFilter;
-  textureMap.magFilter = THREE.LinearFilter;
-  textureMap.needsUpdate = true;
-  return textureMap;
+  return loadTextureAsync(THREE, url, { srgb, wrap });
 }
 
 export async function loadTileMaps(name) {
@@ -97,8 +89,19 @@ export async function loadTileMaps(name) {
   return { albedo, heightMap, normal };
 }
 
-export async function loadAllTileMaps() {
-  const entries = await Promise.all(TILE_NAMES.map(async name => [name, await loadTileMaps(name)]));
+export async function loadAllTileMaps(options = {}) {
+  const names = [...TILE_NAMES, ...(options.extraNames || [])];
+  const entries = await mapPool(names, 2, async (name, index) => {
+    const maps = await loadTileMaps(name);
+    await reportProgress(
+      options.onProgress,
+      `Loading ${name.replace("-", " ")}`,
+      names.length <= 1 ? 1 : index / (names.length - 1),
+      `${index + 1} / ${names.length}`,
+    );
+    await yieldToBrowser();
+    return [name, maps];
+  });
   return Object.fromEntries(entries);
 }
 

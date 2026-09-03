@@ -20,9 +20,13 @@ test("manifest registers a portable WebGPU deserted island", async () => {
   assert.match(entry, /deserted-island\.runtime\.threebrowser\.local/);
   assert.match(entry, /__DESERTED_ISLAND_RUNTIME_MODE__ = "native"/);
   assert.match(browserEntry, /__DESERTED_ISLAND_RUNTIME_MODE__ = "browser"/);
+  assert.match(browserEntry, /startDesertedIsland/);
+  assert.match(browserEntry, /onProgress: setProgress/);
   assert.match(html, /Deserted Island/);
   assert.match(html, /"three\/webgpu"/);
   assert.match(html, /browser-entry\.mjs/);
+  assert.match(html, /boot-meter-fill/);
+  assert.match(html, /aria-valuenow/);
   assert.equal(manifest.requiresWebGPU, true);
   assert.deepEqual(manifest.compatibility.rendererCandidates, ["webgpu"]);
   assert.equal(manifest.compatibility.canvasOnly, true);
@@ -34,6 +38,7 @@ test("manifest registers a portable WebGPU deserted island", async () => {
     "browser-entry.mjs",
     "play.ps1",
     "src/main.mjs",
+    "src/async-load.mjs",
     "src/palm-model.mjs",
     "src/rock-model.mjs",
     "src/foam-field.mjs",
@@ -72,7 +77,9 @@ test("manifest registers a portable WebGPU deserted island", async () => {
 
 test("main wires first-person controls and hybrid RTX lighting without HTML overlay", async () => {
   const [main, html] = await Promise.all([load("src/main.mjs"), load("index.html")]);
+  assert.match(main, /export async function startDesertedIsland/);
   assert.match(main, /new THREE\.WebGPURenderer/);
+  assert.match(main, /compileAsync/);
   assert.match(main, /scene\.add\(camera\)/);
   assert.match(main, /stepFirstPerson/);
   assert.match(main, /pointermove/);

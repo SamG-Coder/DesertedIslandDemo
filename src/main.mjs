@@ -13,8 +13,19 @@ import { collectStaticBeachScene } from "./rtx-scene.mjs";
 import { buildBeachScene, createBeachEnvironment, WATER_LEVEL, WORLD } from "./scene.mjs";
 import { createBeachWeather } from "./weather.mjs";
 import { createBeachShovel } from "./shovel-system.mjs";
+import { reportProgress, yieldToBrowser } from "./async-load.mjs";
 
+export async function startDesertedIsland({ onProgress } = {}) {
+  if (!onProgress) {
+    let lastStage = "";
+    onProgress = ({ stage, ratio }) => {
+      if (stage === lastStage) return;
+      lastStage = stage;
+      console.log(`[Deserted Island] ${Math.round((Number(ratio) || 0) * 100)}% ${stage}`);
+    };
+  }
 document.title = "Deserted Island — ThreeBrowser";
+await reportProgress(onProgress, "Starting renderer", 0.08);
 
 const MAX_INTERNAL_PIXELS = 5_300_000;
 const MAX_INTERNAL_RATIO = 2.25;
@@ -60,7 +71,9 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.autoClear = false;
 renderer.domElement.style.touchAction = "none";
 document.body.appendChild(renderer.domElement);
+renderer.domElement.style.opacity = "0";
 await renderer.init();
+await yieldToBrowser();
 if (!renderer.backend?.isWebGPUBackend) {
   throw new Error("WebGPURenderer did not initialize its WebGPU backend.");
 }
@@ -85,10 +98,19 @@ const environment = createBeachEnvironment(renderer);
 scene.environment = environment.texture;
 scene.environmentIntensity = 0.62;
 
-const maps = await loadAllTileMaps();
+await reportProgress(onProgress, "Loading island materials", 0.16);
+const maps = await loadAllTileMaps({
+  onProgress: ({ stage, detail, ratio }) => {
+    onProgress?.({ stage, detail, ratio: 0.16 + ratio * 0.42 });
+  },
+});
+await reportProgress(onProgress, "Building the shoreline", 0.6);
 const world = await buildBeachScene(scene, maps, renderer);
+await yieldToBrowser();
+await reportProgress(onProgress, "Placing weather and tools", 0.72);
 const collisionWorld = createBeachCollisionWorld(world);
 const weather = createBeachWeather(scene, camera, world);
+await yieldToBrowser();
 const footsteps = createBeachFootstepSystem(scene, world, weather.surfaceWater, collisionWorld);
 const view = createViewState(0, -18, Math.PI, -0.05);
 view.y = collisionWorld.groundHeightAt(view.x, view.z) + 1.64;
@@ -101,6 +123,7 @@ const shovel = await createBeachShovel(
   hit => footsteps.dig(hit),
 );
 prepareRtxGuideMaterials(scene);
+await yieldToBrowser();
 
 const keys = new Set();
 const look = { x: 0, y: 0 };
@@ -115,13 +138,17 @@ const sunDirection = new THREE.Vector3();
 const sunTarget = new THREE.Vector3();
 const skyClock = createSkyClock();
 
-function warmScenePipelines() {
+async function warmScenePipelines() {
   const savedPosition = camera.position.clone();
   const savedQuaternion = camera.quaternion.clone();
   try {
     camera.position.set(0, 5.5, -10);
     camera.lookAt(0, 6, -38);
     camera.updateMatrixWorld(true);
+    if (typeof renderer.compileAsync === "function") {
+      await renderer.compileAsync(scene, camera);
+      await yieldToBrowser();
+    }
     const warmed = nativeReady
       ? rtxRenderer.render(scene, camera, { maxDistance: 180, rayBias: 0.022 })
       : rtxRenderer.renderRaster(scene, camera);
@@ -161,8 +188,13 @@ async function configureNative() {
   return nativeReady;
 }
 
+await reportProgress(onProgress, "Preparing lighting", 0.82);
 await configureNative();
-warmScenePipelines();
+await reportProgress(onProgress, "Compiling shaders", 0.9);
+await warmScenePipelines();
+await reportProgress(onProgress, "Ready", 1);
+renderer.domElement.style.transition = "opacity 280ms ease";
+renderer.domElement.style.opacity = "1";
 
 function applyCamera() {
   const pose = cameraOrientation(view);
@@ -323,3 +355,8 @@ addEventListener("beforeunload", () => {
   shovel.dispose();
   rtxRenderer.dispose();
 });
+}
+
+if (globalThis.__DESERTED_ISLAND_RUNTIME_MODE__ !== "browser") {
+  await startDesertedIsland();
+}
