@@ -55,6 +55,7 @@ test("manifest registers a portable WebGPU deserted island", async () => {
     "src/surface-water.mjs",
     "src/footstep-logic.mjs",
     "src/footstep-system.mjs",
+    "src/dig-burst.mjs",
     "src/collision-system.mjs",
     "src/carryable-system.mjs",
     "src/shovel-system.mjs",
@@ -87,10 +88,11 @@ test("manifest registers a portable WebGPU deserted island", async () => {
 });
 
 test("main wires first-person controls and hybrid RTX lighting without HTML overlay", async () => {
-  const [main, html, nativeHtml] = await Promise.all([
+  const [main, html, nativeHtml, burst] = await Promise.all([
     load("src/main.mjs"),
     load("index.html"),
     load("native.html"),
+    load("src/dig-burst.mjs"),
   ]);
   assert.match(main, /export async function startDesertedIsland/);
   assert.match(main, /new THREE\.WebGPURenderer/);
@@ -115,6 +117,16 @@ test("main wires first-person controls and hybrid RTX lighting without HTML over
   assert.match(main, /createInventoryHud/);
   assert.match(main, /nativeOverlay: !isBrowserHost\(\)/);
   assert.match(main, /collectFromDig/);
+  assert.match(main, /createDigBurstSystem/);
+  assert.match(main, /classifyDigBurst/);
+  assert.match(main, /digBurst\.spawn/);
+  assert.match(main, /digBurst\.update\(dt\)/);
+  assert.match(main, /burst === "water"/);
+  assert.match(burst, /"dry-sand"/);
+  assert.match(burst, /"wet-sand"/);
+  assert.match(burst, /"rocky-sand"/);
+  assert.match(burst, /\bwater: Object\.freeze/);
+  assert.match(burst, /Shovel dig droplets/);
   assert.match(main, /harvestItemId/);
   assert.match(main, /shovel\.carried && shovel\.equipped/);
   assert.match(main, /hud\.sync\(renderer\)/);

@@ -327,6 +327,12 @@
       "bytes": 0
     },
     {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/dig-burst.mjs",
+      "path": "src/dig-burst.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
       "url": "https://deserted-island.runtime.threebrowser.local/src/first-person.mjs",
       "path": "src/first-person.mjs",
       "type": "module",
@@ -455,6 +461,12 @@
     {
       "url": "https://deserted-island.runtime.threebrowser.local/tests/collision-system.test.mjs",
       "path": "tests/collision-system.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/dig-burst.test.mjs",
+      "path": "tests/dig-burst.test.mjs",
       "type": "module",
       "bytes": 0
     },

@@ -13,7 +13,8 @@ import { collectStaticBeachScene } from "./rtx-scene.mjs";
 import { buildBeachScene, createBeachEnvironment, WATER_LEVEL, WORLD } from "./scene.mjs";
 import { createBeachWeather } from "./weather.mjs";
 import { createBeachShovel } from "./shovel-system.mjs";
-import { classifyBeachSurface } from "./footstep-logic.mjs";
+import { classifyBeachSurface, classifyDigBurst } from "./footstep-logic.mjs";
+import { createDigBurstSystem } from "./dig-burst.mjs";
 import { createInventory, harvestItemId, hotbarIndexFromCode } from "./inventory-system.mjs";
 import { createInventoryHud } from "./inventory-hud.mjs";
 import { isBrowserHost, reportProgress, yieldToBrowser } from "./async-load.mjs";
@@ -140,6 +141,7 @@ const hud = createInventoryHud({
   nativeOverlay: !isBrowserHost(),
 });
 hud.resize(innerWidth, innerHeight, displayPixelRatio);
+const digBurst = createDigBurstSystem(scene, collisionWorld);
 
 function collectFromDig(hit) {
   const kind = hit.kind || "terrain";
@@ -151,6 +153,25 @@ function collectFromDig(hit) {
     wetness: weather.surfaceWater?.wetnessAt?.(hit.x, hit.z) ?? 0,
     objectKind: kind === "terrain" ? null : kind,
   });
+  const burst = classifyDigBurst({ kind, surface, z: hit.z });
+  digBurst.spawn(hit, burst);
+  if (burst === "water") {
+    weather.surfaceWater?.impact?.({
+      x: hit.x,
+      y: WATER_LEVEL + 0.03,
+      z: hit.z,
+      kind: "water",
+      intensity: 1.15,
+    });
+  } else if (burst === "wet-sand") {
+    weather.surfaceWater?.impact?.({
+      x: hit.x,
+      y: hit.y + 0.02,
+      z: hit.z,
+      kind: "terrain",
+      intensity: 0.42,
+    });
+  }
   const itemId = harvestItemId({ kind, surface });
   if (!itemId) return;
   const leftover = inventory.add(itemId, 1);
@@ -407,6 +428,7 @@ renderer.setAnimationLoop(() => {
   footsteps.update(dt, view);
   syncShovelEquipment();
   shovel.update(dt);
+  digBurst.update(dt);
   hud.sync(renderer);
 
   world.sun.updateWorldMatrix(true, false);
@@ -472,6 +494,7 @@ addEventListener("beforeunload", () => {
   world.foamField?.dispose();
   weather.dispose();
   footsteps.dispose();
+  digBurst.dispose();
   shovel.dispose();
   hud.dispose();
   rtxRenderer.dispose();

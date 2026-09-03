@@ -6,6 +6,19 @@ export const FOOTSTEP_SURFACES = Object.freeze([
   "wood",
 ]);
 
+function clamp01(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 0;
+  return Math.max(0, Math.min(1, number));
+}
+
+function smoothstep(edge0, edge1, value) {
+  const span = Number(edge1) - Number(edge0);
+  if (Math.abs(span) < 1e-8) return Number(value) >= Number(edge1) ? 1 : 0;
+  const t = clamp01((Number(value) - Number(edge0)) / span);
+  return t * t * (3 - 2 * t);
+}
+
 export function classifyBeachSurface({
   groundHeight,
   waterLevel,
@@ -17,6 +30,23 @@ export function classifyBeachSurface({
   const depth = Number(waterLevel) - Number(groundHeight);
   if (depth > 0.055) return "shallow-water";
   if (depth > -0.045 || Number(wetness) > 0.2) return "wet-sand";
+  return "dry-sand";
+}
+
+/** Matches the pebble-hash band in the terrain shader. */
+export function pebbleCoverageAt(z) {
+  return clamp01(smoothstep(-0.5, 8.5, z) * (1 - smoothstep(13, 26, z)));
+}
+
+export function classifyDigBurst({
+  kind = "terrain",
+  surface = "dry-sand",
+  z = 0,
+} = {}) {
+  if (kind === "rock") return "rock";
+  if (surface === "shallow-water") return "water";
+  if (surface === "wet-sand") return "wet-sand";
+  if (pebbleCoverageAt(z) > 0.35) return "rocky-sand";
   return "dry-sand";
 }
 

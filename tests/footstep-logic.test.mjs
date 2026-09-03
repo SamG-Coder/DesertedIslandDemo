@@ -3,8 +3,10 @@ import test from "node:test";
 import {
   advanceStride,
   classifyBeachSurface,
+  classifyDigBurst,
   createStrideTracker,
   footprintFacing,
+  pebbleCoverageAt,
 } from "../src/footstep-logic.mjs";
 
 test("surface classification prioritises props, water depth, and accumulated wetness", () => {
@@ -15,6 +17,16 @@ test("surface classification prioritises props, water depth, and accumulated wet
   assert.equal(classifyBeachSurface({ groundHeight: 0.02, waterLevel: 0.16 }), "shallow-water");
   assert.equal(classifyBeachSurface({ ...base, objectKind: "rock" }), "rock");
   assert.equal(classifyBeachSurface({ ...base, objectKind: "wood" }), "wood");
+});
+
+test("dig bursts follow sand, wet sand, pebble hash, rock, and water", () => {
+  assert.equal(classifyDigBurst({ surface: "dry-sand", z: -40 }), "dry-sand");
+  assert.equal(classifyDigBurst({ surface: "wet-sand", z: -18 }), "wet-sand");
+  assert.equal(classifyDigBurst({ surface: "shallow-water", z: 12 }), "water");
+  assert.equal(classifyDigBurst({ kind: "rock", surface: "dry-sand", z: -18 }), "rock");
+  assert.ok(pebbleCoverageAt(10) > 0.5);
+  assert.ok(pebbleCoverageAt(-40) < 0.05);
+  assert.equal(classifyDigBurst({ surface: "dry-sand", z: 10 }), "rocky-sand");
 });
 
 test("stride tracker alternates feet based on actual travelled distance", () => {
