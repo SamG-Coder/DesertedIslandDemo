@@ -418,10 +418,7 @@ export function createInventoryHud({
   nativeOverlay = false,
 } = {}) {
   if (!inventory) throw new Error("createInventoryHud requires an inventory.");
-  function makeCanvasTexture(name) {
-    const surface = document.createElement("canvas");
-    surface.width = 1;
-    surface.height = 1;
+  function makeHudTexture(surface, name) {
     const textureMap = new THREE.CanvasTexture(surface);
     textureMap.name = name;
     textureMap.colorSpace = THREE.SRGBColorSpace;
@@ -431,14 +428,28 @@ export function createInventoryHud({
     textureMap.minFilter = THREE.LinearFilter;
     textureMap.magFilter = THREE.LinearFilter;
     textureMap.needsUpdate = true;
-    return { canvas: surface, ctx: surface.getContext("2d", { alpha: true }), texture: textureMap };
+    textureMap.userData.gpuWidth = surface.width;
+    textureMap.userData.gpuHeight = surface.height;
+    return textureMap;
+  }
+
+  function makeCanvasTexture(name) {
+    const surface = document.createElement("canvas");
+    surface.width = 1;
+    surface.height = 1;
+    return {
+      canvas: surface,
+      ctx: surface.getContext("2d", { alpha: true }),
+      texture: makeHudTexture(surface, name),
+    };
   }
 
   const atlas = makeCanvasTexture("Inventory HUD");
   const cursor = makeCanvasTexture("Inventory cursor");
   const canvas = atlas.canvas;
   const ctx = atlas.ctx;
-  const texture = atlas.texture;
+  let texture = atlas.texture;
+  const retiredTextures = [];
   const iconCache = new Map();
 
   let cssWidth = 1;
@@ -721,13 +732,11 @@ export function createInventoryHud({
     const sizeChanged = canvas.width !== texture.userData.gpuWidth
       || canvas.height !== texture.userData.gpuHeight;
     if (sizeChanged) {
-      try {
-        renderer?.backend?.destroyTexture?.(texture);
-      } catch {
-        // First frame has no GPU texture yet.
-      }
-      texture.userData.gpuWidth = canvas.width;
-      texture.userData.gpuHeight = canvas.height;
+      // Swap to a new CanvasTexture so the in-flight present still owns the
+      // previous GPU texture. Disposing it here used it after destroy.
+      retiredTextures.push(texture);
+      texture = makeHudTexture(canvas, "Inventory HUD");
+      atlas.texture = texture;
       texture.needsUpdate = true;
       return;
     }
@@ -859,9 +868,16 @@ export function createInventoryHud({
     return true;
   }
 
+  function afterPresent() {
+    for (const old of retiredTextures) old.dispose();
+    retiredTextures.length = 0;
+  }
+
   const hud = {
     canvas,
-    texture,
+    get texture() {
+      return texture;
+    },
     get open() {
       return open;
     },
@@ -930,8 +946,10 @@ export function createInventoryHud({
     },
     sync,
     frame,
+    afterPresent,
     dispose() {
       canvas.remove?.();
+      afterPresent();
       texture.dispose();
       cursor.texture.dispose();
     },

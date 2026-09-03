@@ -119,6 +119,8 @@ test("main wires first-person controls and hybrid RTX lighting without HTML over
   assert.match(main, /shovel\.carried && shovel\.equipped/);
   assert.match(main, /hud\.sync\(renderer\)/);
   assert.match(main, /present\(hud\.frame\(\)\)/);
+  assert.match(main, /hud\.afterPresent\(\)/);
+  assert.doesNotMatch(main, /destroyTexture/);
   assert.match(main, /RASTER_INTERNAL_PIXELS/);
   assert.match(main, /hasNativeRays/);
   assert.match(main, /shovel\.update\(dt\)/);
@@ -153,6 +155,8 @@ test("inventory HUD is a reusable 2D canvas composited into the swapchain", asyn
   assert.match(hud, /copyExternalImageToTexture/);
   assert.match(hud, /mergeDirtyRects/);
   assert.match(hud, /nativeOverlay/);
+  assert.match(hud, /afterPresent/);
+  assert.doesNotMatch(hud, /destroyTexture/);
   assert.match(hud, /ctx\.arc\(/);
   assert.doesNotMatch(hud, /ctx\.arcTo\(/);
   assert.match(hud, /function frame\(/);

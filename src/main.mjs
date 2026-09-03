@@ -278,7 +278,11 @@ canvas.addEventListener("pointerdown", event => {
   if (event.button !== 0) return;
   if (shovel.carried && shovel.equipped) shovel.dig();
   looking = true;
-  canvas.setPointerCapture?.(event.pointerId);
+  try {
+    canvas.setPointerCapture?.(event.pointerId);
+  } catch {
+    // Pointer lock or a cancelled pointer can reject capture.
+  }
   canvas.requestPointerLock?.();
 });
 canvas.addEventListener("pointerup", event => {
@@ -287,7 +291,11 @@ canvas.addEventListener("pointerup", event => {
   });
   syncShovelEquipment();
   looking = false;
-  canvas.releasePointerCapture?.(event.pointerId);
+  try {
+    canvas.releasePointerCapture?.(event.pointerId);
+  } catch {
+    // Capture may already have been released by pointer lock.
+  }
 });
 canvas.addEventListener("pointercancel", event => {
   hud.handlePointer(event, canvas, { pointerLocked: false });
@@ -440,6 +448,7 @@ renderer.setAnimationLoop(() => {
     renderer.setMRT(null);
     renderer.render(scene, camera);
   }
+  hud.afterPresent();
 
   const pathLabel = nativeReady ? rtxRenderer.rayPathLabel : "WEBGPU RASTER FALLBACK";
   if (pathLabel !== lastPathLabel) {
