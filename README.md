@@ -49,8 +49,8 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File `
 ```
 
 Always launch `site-entry.mjs`, not `src/main.mjs`. The sibling
-`threebrowser.pull.json` tells the native host to install WebGPU before the
-demo module loads.
+`threebrowser.pull.json` points the native host at canvas-only `native.html`,
+matching the original Runtime beach boot. Browsers keep using `index.html`.
 
 Native Runtime is canvas-only: controls and RTX path are reported on stdout.
 Browsers show a determinate loading card. Texture decode uses `createImageBitmap`
@@ -74,7 +74,7 @@ stages on stdout; it still presents one swapchain image with no HTML overlay.
 
 | Path | Host |
 | --- | --- |
-| `site-entry.mjs` | ThreeBrowser Runtime |
+| `site-entry.mjs` + `native.html` | ThreeBrowser Runtime |
 | `browser-entry.mjs` + `index.html` | GitHub Pages / Vite |
 | `src/main.mjs` | Shared WebGPU scene |
 | `play.ps1` | Native launcher |

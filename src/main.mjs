@@ -13,7 +13,7 @@ import { collectStaticBeachScene } from "./rtx-scene.mjs";
 import { buildBeachScene, createBeachEnvironment, WATER_LEVEL, WORLD } from "./scene.mjs";
 import { createBeachWeather } from "./weather.mjs";
 import { createBeachShovel } from "./shovel-system.mjs";
-import { reportProgress, yieldToBrowser } from "./async-load.mjs";
+import { isBrowserHost, reportProgress, yieldToBrowser } from "./async-load.mjs";
 
 export async function startDesertedIsland({ onProgress } = {}) {
   if (!onProgress) {
@@ -71,7 +71,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.autoClear = false;
 renderer.domElement.style.touchAction = "none";
 document.body.appendChild(renderer.domElement);
-renderer.domElement.style.opacity = "0";
+if (isBrowserHost()) renderer.domElement.style.opacity = "0";
 await renderer.init();
 await yieldToBrowser();
 if (!renderer.backend?.isWebGPUBackend) {
@@ -145,7 +145,7 @@ async function warmScenePipelines() {
     camera.position.set(0, 5.5, -10);
     camera.lookAt(0, 6, -38);
     camera.updateMatrixWorld(true);
-    if (typeof renderer.compileAsync === "function") {
+    if (isBrowserHost() && typeof renderer.compileAsync === "function") {
       await renderer.compileAsync(scene, camera);
       await yieldToBrowser();
     }
@@ -193,8 +193,10 @@ await configureNative();
 await reportProgress(onProgress, "Compiling shaders", 0.9);
 await warmScenePipelines();
 await reportProgress(onProgress, "Ready", 1);
-renderer.domElement.style.transition = "opacity 280ms ease";
-renderer.domElement.style.opacity = "1";
+if (isBrowserHost()) {
+  renderer.domElement.style.transition = "opacity 280ms ease";
+  renderer.domElement.style.opacity = "1";
+}
 
 function applyCamera() {
   const pose = cameraOrientation(view);

@@ -1,4 +1,9 @@
+export function isBrowserHost() {
+  return globalThis.__DESERTED_ISLAND_RUNTIME_MODE__ === "browser";
+}
+
 export function yieldToBrowser() {
+  if (!isBrowserHost()) return Promise.resolve();
   if (globalThis.scheduler?.yield) return globalThis.scheduler.yield();
   return new Promise(resolve => {
     const raf = globalThis.requestAnimationFrame;
@@ -47,11 +52,11 @@ async function loadBitmapTexture(url, options) {
 
 export async function loadTextureAsync(THREE, url, { srgb = false, wrap = THREE.RepeatWrapping } = {}) {
   const source = url.href || url;
-  if (typeof fetch === "function" && typeof createImageBitmap === "function") {
+  if (isBrowserHost() && typeof fetch === "function" && typeof createImageBitmap === "function") {
     try {
       return await loadBitmapTexture(source, { srgb, wrap, THREE });
     } catch {
-      // Native file URLs or hosts without bitmap decode fall through.
+      // Hosts without bitmap decode fall through to TextureLoader.
     }
   }
   const textureMap = await new THREE.TextureLoader().loadAsync(source);

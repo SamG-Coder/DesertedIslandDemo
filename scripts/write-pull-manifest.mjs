@@ -20,7 +20,7 @@ async function walk(directory, files = []) {
 
 function fileType(relative) {
   if (relative.endsWith(".mjs")) return "module";
-  if (relative === "index.html") return "html";
+  if (relative === "native.html" || relative === "index.html") return "html";
   if (relative.endsWith(".md") || relative.endsWith(".json") || relative.endsWith(".ps1")) return "text";
   return "asset";
 }
@@ -36,7 +36,7 @@ const manifest = {
   source: virtualURL,
   pulledAt: "2026-09-03T00:00:00.000Z",
   entry: "site-entry.mjs",
-  html: "index.html",
+  html: "native.html",
   requiresWebGPU: true,
   files: files.map(relative => ({
     url: new URL(relative, virtualURL).href,

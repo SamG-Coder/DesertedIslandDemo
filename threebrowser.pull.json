@@ -5,7 +5,7 @@
   "source": "https://deserted-island.runtime.threebrowser.local/",
   "pulledAt": "2026-09-03T00:00:00.000Z",
   "entry": "site-entry.mjs",
-  "html": "index.html",
+  "html": "native.html",
   "requiresWebGPU": true,
   "files": [
     {
@@ -251,6 +251,12 @@
     {
       "url": "https://deserted-island.runtime.threebrowser.local/index.html",
       "path": "index.html",
+      "type": "html",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/native.html",
+      "path": "native.html",
       "type": "html",
       "bytes": 0
     },

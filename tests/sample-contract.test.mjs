@@ -9,10 +9,11 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const load = relative => readFile(path.join(root, relative), "utf8");
 
 test("manifest registers a portable WebGPU deserted island", async () => {
-  const [entry, browserEntry, html, manifestText] = await Promise.all([
+  const [entry, browserEntry, html, nativeHtml, manifestText] = await Promise.all([
     load("site-entry.mjs"),
     load("browser-entry.mjs"),
     load("index.html"),
+    load("native.html"),
     load("threebrowser.pull.json"),
   ]);
   const manifest = JSON.parse(manifestText);
@@ -27,6 +28,10 @@ test("manifest registers a portable WebGPU deserted island", async () => {
   assert.match(html, /browser-entry\.mjs/);
   assert.match(html, /boot-meter-fill/);
   assert.match(html, /aria-valuenow/);
+  assert.match(nativeHtml, /site-entry\.mjs/);
+  assert.match(nativeHtml, /"three\/webgpu"/);
+  assert.doesNotMatch(nativeHtml, /boot-meter-fill|browser-entry/);
+  assert.equal(manifest.html, "native.html");
   assert.equal(manifest.requiresWebGPU, true);
   assert.deepEqual(manifest.compatibility.rendererCandidates, ["webgpu"]);
   assert.equal(manifest.compatibility.canvasOnly, true);
@@ -34,6 +39,7 @@ test("manifest registers a portable WebGPU deserted island", async () => {
   assert.equal(manifest.compatibility.domRequired, false);
   for (const file of [
     "index.html",
+    "native.html",
     "site-entry.mjs",
     "browser-entry.mjs",
     "play.ps1",
@@ -76,7 +82,11 @@ test("manifest registers a portable WebGPU deserted island", async () => {
 });
 
 test("main wires first-person controls and hybrid RTX lighting without HTML overlay", async () => {
-  const [main, html] = await Promise.all([load("src/main.mjs"), load("index.html")]);
+  const [main, html, nativeHtml] = await Promise.all([
+    load("src/main.mjs"),
+    load("index.html"),
+    load("native.html"),
+  ]);
   assert.match(main, /export async function startDesertedIsland/);
   assert.match(main, /new THREE\.WebGPURenderer/);
   assert.match(main, /compileAsync/);
@@ -108,6 +118,7 @@ test("main wires first-person controls and hybrid RTX lighting without HTML over
   assert.doesNotMatch(main, /document\.createElement\(\s*["'](?:div|aside|section|button|input|output)["']\s*\)/);
   assert.doesNotMatch(main, /innerHTML/);
   assert.match(html, /id="boot"/);
+  assert.doesNotMatch(nativeHtml, /<(?:div|aside|section|header|footer|button|input)\b/i);
   assert.ok((main.match(/\.present\(/g) ?? []).length >= 1);
 });
 

@@ -2,7 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { mapPool, reportProgress, yieldToBrowser } from "../src/async-load.mjs";
 
+test("yieldToBrowser is a no-op on the native host", async () => {
+  globalThis.__DESERTED_ISLAND_RUNTIME_MODE__ = "native";
+  const started = Date.now();
+  await yieldToBrowser();
+  assert.ok(Date.now() - started < 50);
+});
+
 test("yieldToBrowser resolves without throwing", async () => {
+  globalThis.__DESERTED_ISLAND_RUNTIME_MODE__ = "browser";
   await yieldToBrowser();
 });
 
