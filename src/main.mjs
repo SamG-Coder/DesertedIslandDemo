@@ -13,6 +13,9 @@ import { collectStaticBeachScene } from "./rtx-scene.mjs";
 import { buildBeachScene, createBeachEnvironment, WATER_LEVEL, WORLD } from "./scene.mjs";
 import { createBeachWeather } from "./weather.mjs";
 import { createBeachShovel } from "./shovel-system.mjs";
+import { classifyBeachSurface } from "./footstep-logic.mjs";
+import { createInventory, harvestItemId, hotbarIndexFromCode } from "./inventory-system.mjs";
+import { createInventoryHud } from "./inventory-hud.mjs";
 import { isBrowserHost, reportProgress, yieldToBrowser } from "./async-load.mjs";
 
 export async function startDesertedIsland({ onProgress } = {}) {
@@ -83,7 +86,7 @@ renderer.backend.device?.addEventListener?.("uncapturederror", event => {
 
 const rtx = navigator.gpu?.threeBrowserRTX ?? null;
 reportBridge(rtx);
-console.log("[First-Person Beach] Click/dig · WASD walk · Shift sprint · Space jump · E carry/drop · X RTX");
+console.log("[First-Person Beach] Click/dig · WASD walk · Shift sprint · Space jump · E carry/drop · Tab inventory · 1-9 hotbar · X RTX");
 
 const scene = new THREE.Scene();
 scene.name = "First-person tropical beach";
@@ -115,13 +118,50 @@ const footsteps = createBeachFootstepSystem(scene, world, weather.surfaceWater, 
 const view = createViewState(0, -18, Math.PI, -0.05);
 view.y = collisionWorld.groundHeightAt(view.x, view.z) + 1.64;
 camera.position.set(view.x, view.y, view.z);
+const inventory = createInventory();
+const hud = createInventoryHud({
+  inventory,
+  icons: {
+    "dry-sand": maps["dry-sand"]?.albedo,
+    "wet-sand": maps["wet-sand"]?.albedo,
+    rock: maps["coastal-rock"]?.albedo,
+  },
+});
+hud.resize(innerWidth, innerHeight, displayPixelRatio);
+
+function collectFromDig(hit) {
+  const kind = hit.kind || "terrain";
+  if (kind === "terrain") footsteps.dig(hit);
+  const support = collisionWorld.surfaceAt(hit.x, hit.z);
+  const surface = classifyBeachSurface({
+    groundHeight: support.height,
+    waterLevel: WATER_LEVEL,
+    wetness: weather.surfaceWater?.wetnessAt?.(hit.x, hit.z) ?? 0,
+    objectKind: kind === "terrain" ? null : kind,
+  });
+  const itemId = harvestItemId({ kind, surface });
+  if (!itemId) return;
+  const leftover = inventory.add(itemId, 1);
+  if (leftover > 0) {
+    console.log("[First-Person Beach] Inventory full");
+    return;
+  }
+  const item = inventory.catalog[itemId];
+  console.log(`[First-Person Beach] Collected ${item?.name ?? itemId}`);
+  hud.markDirty();
+}
+
 const shovel = await createBeachShovel(
   scene,
   camera,
   view,
   collisionWorld,
-  hit => footsteps.dig(hit),
+  collectFromDig,
 );
+
+function syncShovelEquipment() {
+  shovel.setEquipped(shovel.carried && inventory.selectedItemId() === "shovel");
+}
 prepareRtxGuideMaterials(scene);
 await yieldToBrowser();
 
@@ -212,23 +252,39 @@ function clampToWorld(state) {
 }
 
 const canvas = renderer.domElement;
+canvas.addEventListener("contextmenu", event => event.preventDefault());
 canvas.addEventListener("pointerdown", event => {
-  if (event.button !== 0) return;
   footsteps.arm();
-  if (shovel.carried) shovel.dig();
+  const locked = document.pointerLockElement === canvas;
+  const ui = hud.handlePointer(event, canvas, { pointerLocked: locked });
+  syncShovelEquipment();
+  if (hud.open || ui.handled) {
+    looking = false;
+    if (hud.open) document.exitPointerLock?.();
+    return;
+  }
+  if (event.button !== 0) return;
+  if (shovel.carried && shovel.equipped) shovel.dig();
   looking = true;
   canvas.setPointerCapture?.(event.pointerId);
   canvas.requestPointerLock?.();
 });
 canvas.addEventListener("pointerup", event => {
+  hud.handlePointer(event, canvas, {
+    pointerLocked: document.pointerLockElement === canvas,
+  });
+  syncShovelEquipment();
   looking = false;
   canvas.releasePointerCapture?.(event.pointerId);
 });
-canvas.addEventListener("pointercancel", () => {
+canvas.addEventListener("pointercancel", event => {
+  hud.handlePointer(event, canvas, { pointerLocked: false });
   looking = false;
 });
 canvas.addEventListener("pointermove", event => {
   const locked = document.pointerLockElement === canvas;
+  hud.handlePointer(event, canvas, { pointerLocked: locked });
+  if (hud.open) return;
   if (!looking && !locked) return;
   look.x += event.movementX || 0;
   look.y += event.movementY || 0;
@@ -237,18 +293,56 @@ document.addEventListener("pointerlockchange", () => {
   if (document.pointerLockElement !== canvas) looking = false;
 });
 addEventListener("keydown", event => {
-  footsteps.arm();
-  keys.add(event.code);
-  if (event.code === "Space" && !event.repeat) {
-    jumpQueued = true;
+  if (event.code === "Tab") {
     event.preventDefault?.();
+    if (event.repeat) return;
+    hud.toggle();
+    looking = false;
+    if (hud.open) document.exitPointerLock?.();
+    else canvas.requestPointerLock?.();
+    return;
   }
-  if (event.code === "KeyE" && !event.repeat) shovel.interact();
+  if (event.code === "Escape" && hud.open) {
+    event.preventDefault?.();
+    hud.setOpen(false);
+    looking = false;
+    return;
+  }
+  const hotbar = hotbarIndexFromCode(event.code);
+  if (hotbar >= 0) {
+    inventory.selectHotbar(hotbar);
+    syncShovelEquipment();
+    hud.markDirty();
+    return;
+  }
   if (event.code === "KeyX") {
     nativeRequested = !nativeRequested;
     if (nativeRequested) configureNative();
     else nativeReady = false;
     console.log(`[First-Person Beach] RTX requested=${nativeRequested}`);
+  }
+  if (!hud.open) footsteps.arm();
+  keys.add(event.code);
+  if (hud.open) {
+    if (event.code === "Space") event.preventDefault?.();
+    return;
+  }
+  if (event.code === "Space" && !event.repeat) {
+    jumpQueued = true;
+    event.preventDefault?.();
+  }
+  if (event.code === "KeyE" && !event.repeat) {
+    if (shovel.carried) {
+      if (shovel.interact()) inventory.remove("shovel", 1);
+    } else if (inventory.canAdd("shovel", 1) && shovel.interact()) {
+      inventory.add("shovel", 1, { preferSelected: true });
+      const index = inventory.findItem("shovel");
+      if (index >= inventory.storageSize) {
+        inventory.selectHotbar(index - inventory.storageSize);
+      }
+    }
+    syncShovelEquipment();
+    hud.markDirty();
   }
 });
 addEventListener("keyup", event => keys.delete(event.code));
@@ -264,9 +358,9 @@ renderer.setAnimationLoop(() => {
     left: Number(keys.has("KeyA") || keys.has("ArrowLeft")),
     right: Number(keys.has("KeyD") || keys.has("ArrowRight")),
     sprint: keys.has("ShiftLeft") || keys.has("ShiftRight"),
-    jump: jumpQueued,
-    lookX: look.x,
-    lookY: look.y,
+    jump: hud.open ? false : jumpQueued,
+    lookX: hud.open ? 0 : look.x,
+    lookY: hud.open ? 0 : look.y,
   }, collisionWorld.groundHeightAt, WATER_LEVEL, dt, collisionWorld);
   jumpQueued = false;
   look.x = 0;
@@ -291,7 +385,9 @@ renderer.setAnimationLoop(() => {
   });
   const weatherFrame = weather.update(dt, sky, world);
   footsteps.update(dt, view);
+  syncShovelEquipment();
   shovel.update(dt);
+  hud.sync();
 
   world.sun.updateWorldMatrix(true, false);
   world.sun.target.updateWorldMatrix(true, false);
@@ -327,7 +423,7 @@ renderer.setAnimationLoop(() => {
     nativeReady = false;
     rendered = rtxRenderer.renderRaster(scene, camera);
   }
-  if (!rtxRenderer.present(null)) {
+  if (!rtxRenderer.present(hud.texture)) {
     renderer.setRenderTarget(null);
     renderer.setMRT(null);
     renderer.render(scene, camera);
@@ -345,6 +441,7 @@ addEventListener("resize", () => {
   camera.updateProjectionMatrix();
   internalRatio = chooseInternalRatio(innerWidth, innerHeight);
   renderer.setSize(Math.max(1, innerWidth), Math.max(1, innerHeight));
+  hud.resize(innerWidth, innerHeight, displayPixelRatio);
   const size = internalSize();
   const resized = rtxRenderer.resize(size.x, size.y);
   if (nativeReady) nativeReady = resized;
@@ -355,6 +452,7 @@ addEventListener("beforeunload", () => {
   weather.dispose();
   footsteps.dispose();
   shovel.dispose();
+  hud.dispose();
   rtxRenderer.dispose();
 });
 }

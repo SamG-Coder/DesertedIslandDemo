@@ -58,6 +58,8 @@ test("manifest registers a portable WebGPU deserted island", async () => {
     "src/collision-system.mjs",
     "src/carryable-system.mjs",
     "src/shovel-system.mjs",
+    "src/inventory-system.mjs",
+    "src/inventory-hud.mjs",
     "src/sky-cycle.mjs",
     "src/tile-relief.mjs",
     "src/native-rtx-renderer.mjs",
@@ -107,10 +109,18 @@ test("main wires first-person controls and hybrid RTX lighting without HTML over
   assert.match(main, /createBeachCollisionWorld/);
   assert.match(main, /createBeachShovel/);
   assert.match(main, /event\.code === "KeyE"/);
-  assert.match(main, /if \(shovel\.carried\) shovel\.dig\(\)/);
+  assert.match(main, /event\.code === "Tab"/);
+  assert.match(main, /hotbarIndexFromCode/);
+  assert.match(main, /createInventory/);
+  assert.match(main, /createInventoryHud/);
+  assert.match(main, /collectFromDig/);
+  assert.match(main, /harvestItemId/);
+  assert.match(main, /shovel\.carried && shovel\.equipped/);
+  assert.match(main, /hud\.sync\(\)/);
+  assert.match(main, /present\(hud\.texture\)/);
   assert.match(main, /shovel\.update\(dt\)/);
   assert.match(main, /footsteps\.update\(dt, view\)/);
-  assert.match(main, /jump: jumpQueued/);
+  assert.match(main, /jump: hud.open \? false : jumpQueued/);
   assert.match(main, /camera\.lookAt\(0, 6, -38\)/);
   assert.match(main, /rtxRenderer\.render\(scene, camera/);
   assert.match(main, /warmScenePipelines\(\)/);
@@ -123,6 +133,25 @@ test("main wires first-person controls and hybrid RTX lighting without HTML over
   assert.match(html, /id="boot"/);
   assert.doesNotMatch(nativeHtml, /<(?:div|aside|section|header|footer|button|input)\b/i);
   assert.ok((main.match(/\.present\(/g) ?? []).length >= 1);
+});
+
+test("inventory HUD is a reusable 2D canvas composited into the swapchain", async () => {
+  const [hud, system, renderer] = await Promise.all([
+    load("src/inventory-hud.mjs"),
+    load("src/inventory-system.mjs"),
+    load("src/native-rtx-renderer.mjs"),
+  ]);
+  assert.match(hud, /document\.createElement\("canvas"\)/);
+  assert.match(hud, /getContext\("2d"/);
+  assert.match(hud, /CanvasTexture/);
+  assert.match(hud, /layoutInventoryHud/);
+  assert.match(hud, /Drag stacks between storage and the hotbar/);
+  assert.match(system, /MAX_STACK = 255/);
+  assert.match(system, /HOTBAR_SIZE = 9/);
+  assert.match(system, /harvestItemId/);
+  assert.match(renderer, /_setHudTexture/);
+  assert.match(renderer, /_hudMaterialCache/);
+  assert.doesNotMatch(hud, /innerHTML/);
 });
 
 test("walking has native surface audio and pooled sand impressions", async () => {

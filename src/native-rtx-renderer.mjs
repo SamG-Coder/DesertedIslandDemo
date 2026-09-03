@@ -147,13 +147,9 @@ export class NativeRtxRenderer {
     const hudUvs = this._hudGeometry.getAttribute("uv");
     for (let index = 0; index < hudUvs.count; ++index) hudUvs.setY(index, 1 - hudUvs.getY(index));
     hudUvs.needsUpdate = true;
-    this._hudMaterial = new THREE.MeshBasicNodeMaterial({
-      transparent: true,
-      depthTest: false,
-      depthWrite: false,
-      fog: false,
-    });
-    this._hudMaterial.toneMapped = false;
+    this._hudMaterialCache = new Map();
+    this._hudPlaceholderMaterial = this._createHudMaterial(null);
+    this._hudMaterial = this._hudPlaceholderMaterial;
     this._hudQuad = new THREE.Mesh(this._hudGeometry, this._hudMaterial);
     this._hudQuad.frustumCulled = false;
     this._hudQuad.renderOrder = 1;
@@ -174,6 +170,36 @@ export class NativeRtxRenderer {
     });
     material.toneMapped = true;
     return material;
+  }
+
+  _createHudMaterial(texture) {
+    const material = new THREE.MeshBasicNodeMaterial({
+      map: texture,
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+      fog: false,
+    });
+    material.toneMapped = false;
+    return material;
+  }
+
+  _hudMaterialFor(texture) {
+    if (!texture) return this._hudPlaceholderMaterial;
+    let material = this._hudMaterialCache.get(texture);
+    if (!material) {
+      material = this._createHudMaterial(texture);
+      this._hudMaterialCache.set(texture, material);
+    }
+    return material;
+  }
+
+  _setHudTexture(texture) {
+    const material = this._hudMaterialFor(texture);
+    this._hudQuad.visible = Boolean(texture);
+    if (this._hudMaterial === material) return;
+    this._hudMaterial = material;
+    this._hudQuad.material = material;
   }
 
   _displayMaterialFor(texture) {
@@ -581,11 +607,7 @@ export class NativeRtxRenderer {
         presentationTexture = this.sceneTarget.textures[1];
       }
       this._setDisplayTexture(presentationTexture);
-      if (this._hudMaterial.map !== hudTexture) {
-        this._hudMaterial.map = hudTexture;
-        this._hudMaterial.needsUpdate = true;
-      }
-      this._hudQuad.visible = Boolean(hudTexture);
+      this._setHudTexture(hudTexture);
       this.renderer.setRenderTarget(null);
       this.renderer.setMRT(null);
       const previousAutoClear = this.renderer.autoClear;
@@ -652,6 +674,9 @@ export class NativeRtxRenderer {
     this._displayPlaceholderMaterial.dispose();
     this._displayMaterial = null;
     this._hudGeometry.dispose();
-    this._hudMaterial.dispose();
+    for (const material of this._hudMaterialCache.values()) material.dispose();
+    this._hudMaterialCache.clear();
+    this._hudPlaceholderMaterial.dispose();
+    this._hudMaterial = null;
   }
 }

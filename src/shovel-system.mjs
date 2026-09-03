@@ -133,7 +133,7 @@ function createDigAnimation(object, camera, collisionWorld, isCarried, onDig) {
         object.position.y -= Math.sin(t * Math.PI) * 0.09;
         if (phaseTime >= SWING_SECONDS) {
           console.log(`[First-Person Beach] Shovel struck ${targetKind}`);
-          if (targetKind === "terrain") {
+          if (targetKind === "terrain" || targetKind === "rock") {
             const horizontalLength = Math.hypot(aimDirection.x, aimDirection.z) || 1;
             onDig?.({
               x: targetWorld.x,
@@ -141,9 +141,11 @@ function createDigAnimation(object, camera, collisionWorld, isCarried, onDig) {
               z: targetWorld.z,
               forwardX: aimDirection.x / horizontalLength,
               forwardZ: aimDirection.z / horizontalLength,
+              kind: targetKind,
             });
-            beginPhase("shoulder");
-          } else beginPhase("recover");
+          }
+          if (targetKind === "terrain") beginPhase("shoulder");
+          else beginPhase("recover");
         }
         return;
       }
@@ -207,11 +209,12 @@ export async function createBeachShovel(scene, camera, view, collisionWorld, onD
     heldRotation: [READY_ROTATION.x, READY_ROTATION.y, READY_ROTATION.z],
     label: "shovel",
   });
+  let equipped = true;
   const digAnimation = createDigAnimation(
     anchor,
     camera,
     collisionWorld,
-    () => carryable.carried,
+    () => carryable.carried && equipped,
     onDig,
   );
   return {
@@ -219,19 +222,33 @@ export async function createBeachShovel(scene, camera, view, collisionWorld, onD
     get carried() {
       return carryable.carried;
     },
+    get equipped() {
+      return equipped;
+    },
     get digging() {
       return digAnimation.active;
     },
+    setEquipped(value) {
+      equipped = Boolean(value);
+      if (carryable.carried) {
+        anchor.visible = equipped;
+        if (!equipped) digAnimation.cancel();
+      }
+    },
     interact() {
       digAnimation.cancel();
-      return carryable.interact();
+      const changed = carryable.interact();
+      if (changed) anchor.visible = !carryable.carried || equipped;
+      return changed;
     },
     dig() {
       return digAnimation.trigger();
     },
     update(dt) {
       carryable.update(dt);
-      digAnimation.update(dt);
+      anchor.visible = !carryable.carried || equipped;
+      if (equipped) digAnimation.update(dt);
+      else digAnimation.cancel();
     },
     dispose() {
       digAnimation.cancel();

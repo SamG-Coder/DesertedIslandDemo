@@ -351,6 +351,18 @@
       "bytes": 0
     },
     {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/inventory-hud.mjs",
+      "path": "src/inventory-hud.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/inventory-system.mjs",
+      "path": "src/inventory-system.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
       "url": "https://deserted-island.runtime.threebrowser.local/src/main.mjs",
       "path": "src/main.mjs",
       "type": "module",
@@ -467,6 +479,12 @@
     {
       "url": "https://deserted-island.runtime.threebrowser.local/tests/generated-assets.test.mjs",
       "path": "tests/generated-assets.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/inventory-system.test.mjs",
+      "path": "tests/inventory-system.test.mjs",
       "type": "module",
       "bytes": 0
     },

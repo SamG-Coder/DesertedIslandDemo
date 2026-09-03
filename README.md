@@ -71,8 +71,18 @@ stages on stdout; it still presents one swapchain image with no HTML overlay.
 | Shift | Sprint |
 | `Space` | Jump |
 | `E` | Pick up / place the shovel |
-| Primary click | Dig while carrying the shovel |
+| Primary click | Dig while the shovel is the focused hotbar item |
+| `Tab` | Open / close the inventory canvas |
+| `1`–`9` | Select the focused hotbar slot |
+| Drag | Move stacks between storage (top) and the hotbar (bottom) |
 | `X` | Toggle native RTX lighting/reflections |
+
+The HUD is a 2D canvas composited over the WebGPU frame, not an HTML overlay.
+Nine hotbar slots stay on screen. `Tab` opens a 9×3 storage grid above that
+same bar. Digging sand or striking rock places a stack in the first matching
+hotbar slot, up to **255** per slot. Drag or shift-click to move stacks between
+storage and the hotbar. `1`–`9` change the focused equipment; the shovel only
+swings while that slot holds it.
 
 ## Layout
 
