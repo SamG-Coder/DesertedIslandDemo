@@ -1,0 +1,511 @@
+{
+  "format": 2,
+  "projectId": "a7c3e91d4b2f6805",
+  "virtualURL": "https://deserted-island.runtime.threebrowser.local/",
+  "source": "https://deserted-island.runtime.threebrowser.local/",
+  "pulledAt": "2026-09-03T00:00:00.000Z",
+  "entry": "site-entry.mjs",
+  "html": "index.html",
+  "requiresWebGPU": true,
+  "files": [
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/README.md",
+      "path": "README.md",
+      "type": "text",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/TEXTURES.md",
+      "path": "assets/TEXTURES.md",
+      "type": "text",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/audio/footstep-dry-sand-1.wav",
+      "path": "assets/audio/footstep-dry-sand-1.wav",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/audio/footstep-dry-sand-2.wav",
+      "path": "assets/audio/footstep-dry-sand-2.wav",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/audio/footstep-rock-1.wav",
+      "path": "assets/audio/footstep-rock-1.wav",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/audio/footstep-rock-2.wav",
+      "path": "assets/audio/footstep-rock-2.wav",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/audio/footstep-shallow-water-1.wav",
+      "path": "assets/audio/footstep-shallow-water-1.wav",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/audio/footstep-shallow-water-2.wav",
+      "path": "assets/audio/footstep-shallow-water-2.wav",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/audio/footstep-wet-sand-1.wav",
+      "path": "assets/audio/footstep-wet-sand-1.wav",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/audio/footstep-wet-sand-2.wav",
+      "path": "assets/audio/footstep-wet-sand-2.wav",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/audio/footstep-wood-1.wav",
+      "path": "assets/audio/footstep-wood-1.wav",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/audio/footstep-wood-2.wav",
+      "path": "assets/audio/footstep-wood-2.wav",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/models/coastal-rock-set.glb",
+      "path": "assets/models/coastal-rock-set.glb",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/models/detailed-beach-shovel.glb",
+      "path": "assets/models/detailed-beach-shovel.glb",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/models/realistic-beach-palm.glb",
+      "path": "assets/models/realistic-beach-palm.glb",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/textures/coastal-rock-albedo.png",
+      "path": "assets/textures/coastal-rock-albedo.png",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/textures/coastal-rock-height.png",
+      "path": "assets/textures/coastal-rock-height.png",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/textures/coastal-rock-normal.png",
+      "path": "assets/textures/coastal-rock-normal.png",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/textures/dry-sand-albedo.png",
+      "path": "assets/textures/dry-sand-albedo.png",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/textures/dry-sand-height.png",
+      "path": "assets/textures/dry-sand-height.png",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/textures/dry-sand-normal.png",
+      "path": "assets/textures/dry-sand-normal.png",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/textures/dune-grass-albedo.png",
+      "path": "assets/textures/dune-grass-albedo.png",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/textures/dune-grass-height.png",
+      "path": "assets/textures/dune-grass-height.png",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/textures/dune-grass-normal.png",
+      "path": "assets/textures/dune-grass-normal.png",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/textures/lunar-surface-albedo.png",
+      "path": "assets/textures/lunar-surface-albedo.png",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/textures/lunar-surface-height.png",
+      "path": "assets/textures/lunar-surface-height.png",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/textures/lunar-surface-normal.png",
+      "path": "assets/textures/lunar-surface-normal.png",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/textures/palm-bark-albedo.png",
+      "path": "assets/textures/palm-bark-albedo.png",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/textures/palm-bark-height.png",
+      "path": "assets/textures/palm-bark-height.png",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/textures/palm-bark-normal.png",
+      "path": "assets/textures/palm-bark-normal.png",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/textures/palm-leaf-albedo.png",
+      "path": "assets/textures/palm-leaf-albedo.png",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/textures/palm-leaf-height.png",
+      "path": "assets/textures/palm-leaf-height.png",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/textures/palm-leaf-normal.png",
+      "path": "assets/textures/palm-leaf-normal.png",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/textures/pebble-hash-albedo.png",
+      "path": "assets/textures/pebble-hash-albedo.png",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/textures/pebble-hash-height.png",
+      "path": "assets/textures/pebble-hash-height.png",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/textures/pebble-hash-normal.png",
+      "path": "assets/textures/pebble-hash-normal.png",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/textures/wet-sand-albedo.png",
+      "path": "assets/textures/wet-sand-albedo.png",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/textures/wet-sand-height.png",
+      "path": "assets/textures/wet-sand-height.png",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/textures/wet-sand-normal.png",
+      "path": "assets/textures/wet-sand-normal.png",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/browser-entry.mjs",
+      "path": "browser-entry.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/index.html",
+      "path": "index.html",
+      "type": "html",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/package.json",
+      "path": "package.json",
+      "type": "text",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/play.ps1",
+      "path": "play.ps1",
+      "type": "text",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/scripts/verify-pages-build.mjs",
+      "path": "scripts/verify-pages-build.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/scripts/write-pull-manifest.mjs",
+      "path": "scripts/write-pull-manifest.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/site-entry.mjs",
+      "path": "site-entry.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/carryable-system.mjs",
+      "path": "src/carryable-system.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/collision-system.mjs",
+      "path": "src/collision-system.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/first-person.mjs",
+      "path": "src/first-person.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/foam-field.mjs",
+      "path": "src/foam-field.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/footstep-logic.mjs",
+      "path": "src/footstep-logic.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/footstep-system.mjs",
+      "path": "src/footstep-system.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/main.mjs",
+      "path": "src/main.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/materials.mjs",
+      "path": "src/materials.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/native-rtx-renderer.mjs",
+      "path": "src/native-rtx-renderer.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/palm-model.mjs",
+      "path": "src/palm-model.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/rock-model.mjs",
+      "path": "src/rock-model.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/rtx-scene.mjs",
+      "path": "src/rtx-scene.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/scene.mjs",
+      "path": "src/scene.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/shovel-system.mjs",
+      "path": "src/shovel-system.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/sky-cycle.mjs",
+      "path": "src/sky-cycle.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/surface-water.mjs",
+      "path": "src/surface-water.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/terrain.mjs",
+      "path": "src/terrain.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/tile-png.mjs",
+      "path": "src/tile-png.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/tile-relief.mjs",
+      "path": "src/tile-relief.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/weather.mjs",
+      "path": "src/weather.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/collision-system.test.mjs",
+      "path": "tests/collision-system.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/first-person.test.mjs",
+      "path": "tests/first-person.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/footstep-audio.test.mjs",
+      "path": "tests/footstep-audio.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/footstep-logic.test.mjs",
+      "path": "tests/footstep-logic.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/generated-assets.test.mjs",
+      "path": "tests/generated-assets.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/palm-model.test.mjs",
+      "path": "tests/palm-model.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/rock-model.test.mjs",
+      "path": "tests/rock-model.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/sample-contract.test.mjs",
+      "path": "tests/sample-contract.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/shovel-system.test.mjs",
+      "path": "tests/shovel-system.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/sky-cycle.test.mjs",
+      "path": "tests/sky-cycle.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/tile-relief.test.mjs",
+      "path": "tests/tile-relief.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/threebrowser.pull.json",
+      "path": "threebrowser.pull.json",
+      "type": "text",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/tools/bake-tile-maps.mjs",
+      "path": "tools/bake-tile-maps.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/tools/generate-footstep-audio.mjs",
+      "path": "tools/generate-footstep-audio.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/vite.config.mjs",
+      "path": "vite.config.mjs",
+      "type": "module",
+      "bytes": 0
+    }
+  ],
+  "compatibility": {
+    "rendererCandidates": [
+      "webgpu"
+    ],
+    "canvasOnly": true,
+    "htmlOverlay": false,
+    "domRequired": false,
+    "notes": [
+      "Native Runtime launches site-entry.mjs and paints one swapchain image.",
+      "Browsers load browser-entry.mjs from index.html after a WebGPU capability check.",
+      "RTX lighting is used when navigator.gpu.threeBrowserRTX is present; otherwise the WebGPU raster path remains."
+    ]
+  }
+}
