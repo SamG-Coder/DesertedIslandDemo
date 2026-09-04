@@ -2,6 +2,7 @@ export const SCOOP_VOLUME_HEIGHT = 0.16; // matches current DIG_DEPTH
 export const SHOVEL_RADIUS_X = 0.2;
 export const SHOVEL_RADIUS_Z = 0.26;
 export const SHOVEL_STAMP_RADIUS = Math.max(SHOVEL_RADIUS_X, SHOVEL_RADIUS_Z);
+export const DUMP_RADIUS = 0.68;
 export const PILE_SAND_MIN = 0.04;
 
 function clamp01(value) {
@@ -28,6 +29,15 @@ export function shovelKernelWeight(localX, localZ, radiusX, radiusZ, peaked) {
     return t * t;
   }
   return 1 - smoothstep(0.32, 1, q);
+}
+
+export function pileKernelWeight(localX, localZ, radiusX, radiusZ) {
+  const rx = Math.max(1e-4, Number(radiusX) || 0);
+  const rz = Math.max(1e-4, Number(radiusZ) || 0);
+  const q = Math.hypot(Number(localX) / rx, Number(localZ) / rz);
+  if (!(q < 1)) return 0;
+  const t = 1 - q;
+  return t * t;
 }
 
 export function stampDig(field, hit) {
@@ -61,11 +71,11 @@ export function isSandPile(sandAt, x, z, minimum = PILE_SAND_MIN) {
 export function stampDump(field, hit, { wetness = 0 } = {}) {
   return field.stamp(hit.x, hit.z, {
     amount: SCOOP_VOLUME_HEIGHT,
-    radiusX: SHOVEL_RADIUS_X,
-    radiusZ: SHOVEL_RADIUS_Z,
+    radiusX: DUMP_RADIUS,
+    radiusZ: DUMP_RADIUS,
     forwardX: hit.forwardX,
     forwardZ: hit.forwardZ,
-    peaked: true,
+    kernel: "pile",
     wetness,
   });
 }

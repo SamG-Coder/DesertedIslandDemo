@@ -1,5 +1,5 @@
 import { HEIGHT_BOUNDS } from "./terrain.mjs";
-import { shovelKernelWeight } from "./sand-stamp.mjs";
+import { pileKernelWeight, shovelKernelWeight } from "./sand-stamp.mjs";
 
 export const CELL_SIZE = 0.25;
 export const CHUNK_CELLS = 16;
@@ -216,7 +216,9 @@ export function createSandField(options = {}) {
         const dz = center.z - z;
         const localX = dx * rightX + dz * rightZ;
         const localZ = dx * forwardX + dz * forwardZ;
-        const weight = shovelKernelWeight(localX, localZ, radiusX, radiusZ, peaked);
+        const weight = options.kernel === "pile"
+          ? pileKernelWeight(localX, localZ, radiusX, radiusZ)
+          : shovelKernelWeight(localX, localZ, radiusX, radiusZ, peaked);
         if (weight <= 0) continue;
         addAtCell(ix, iz, amount * weight, hasWet ? wetness * weight : undefined, limits);
       }

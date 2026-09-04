@@ -40,6 +40,18 @@ test("stampDump raises heightAt", () => {
   assert.ok(sim.heightAt(-1, 3) > before);
 });
 
+test("a dump mound has a skirt that meets the beach instead of a one-cell pyramid", () => {
+  const sim = createSim();
+  sim.stampDump(2.125, 2.125);
+  const peak = sim.heightAt(2.125, 2.125);
+  const skirt = sim.heightAt(2.425, 2.125);
+  const toe = sim.heightAt(2.125 + 0.75, 2.125);
+  assert.ok(peak > 1.1);
+  assert.ok(skirt > 1.02, `skirt was ${skirt}`);
+  assert.ok(skirt < peak);
+  assert.ok(toe < 1.01, `toe was ${toe}`);
+});
+
 test("a bucket scoop takes from a pile without digging a hole", () => {
   const sim = createSim();
   assert.equal(sim.isSandPile(2, -4), false);

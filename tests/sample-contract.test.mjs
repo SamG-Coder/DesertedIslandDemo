@@ -221,23 +221,33 @@ test("inventory HUD is a reusable 2D canvas composited into the swapchain", asyn
 });
 
 test("walking has native surface audio and pooled sand impressions", async () => {
-  const [main, footsteps, logic, weather] = await Promise.all([
+  const [main, footsteps, logic, weather, stamp] = await Promise.all([
     load("src/main.mjs"),
     load("src/footstep-system.mjs"),
     load("src/footstep-logic.mjs"),
     load("src/weather.mjs"),
+    load("src/sand-stamp.mjs"),
   ]);
   assert.match(main, /footsteps\.arm\(\)/);
   assert.match(weather, /surfaceWater,/);
   assert.match(footsteps, /new Audio\(source\)/);
   assert.match(footsteps, /new THREE\.InstancedMesh/);
   assert.match(footsteps, /createDepressedFootprintGeometry/);
-  assert.match(footsteps, /const SEAM_COLLAR = 0\.035/);
-  assert.match(footsteps, /const HOLE_SIDE_INSET = 0\.014/);
-  assert.match(footsteps, /const HOLE_END_INSET = 0\.02/);
+  assert.match(footsteps, /const SEAM_COLLAR = 0\.05/);
+  assert.match(footsteps, /const HOLE_SIDE_INSET = 0\.024/);
+  assert.match(footsteps, /const HOLE_END_INSET = 0\.028/);
+  assert.match(footsteps, /WELL_DEPTH/);
+  assert.match(footsteps, /DoubleSide/);
   assert.match(footsteps, /surrounding collar remains level/);
   assert.match(footsteps, /These are real vertices below the surrounding terrain surface/);
   assert.match(footsteps, /world\.terrain\.material\.clone\(\)/);
+  assert.match(footsteps, /Editable beach terrain material/);
+  assert.match(footsteps, /canImpressTerrain/);
+  assert.match(footsteps, /redrawHoleMask/);
+  assert.match(footsteps, /DUMP_RADIUS/);
+  assert.match(stamp, /export const DUMP_RADIUS = 0\.68/);
+  assert.match(stamp, /kernel: "pile"/);
+  assert.match(stamp, /function pileKernelWeight/);
   assert.match(footsteps, /Dynamic terrain footprint openings/);
   assert.match(footsteps, /Refined editable beach heightfield/);
   assert.match(footsteps, /function createEditedTerrainGeometry/);

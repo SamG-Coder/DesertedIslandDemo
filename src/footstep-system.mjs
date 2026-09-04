@@ -8,12 +8,13 @@ import {
   footprintFacing,
 } from "./footstep-logic.mjs";
 import { createWaterMaterial } from "./materials.mjs";
+import { DUMP_RADIUS, PILE_SAND_MIN } from "./sand-stamp.mjs";
 import { HEIGHT_BOUNDS, WATER_LEVEL, terrainHeight } from "./terrain.mjs";
 
 const IMPRESSION_COUNT = 64;
 const DIG_COUNT = 512;
 const MASK_SIZE = 1024;
-const MASK_WORLD_SIZE = 42;
+const MASK_WORLD_SIZE = 32;
 const DIG_RADIUS_X = 0.2;
 const DIG_RADIUS_Z = 0.26;
 const DIG_DEPTH = 0.16;
@@ -24,9 +25,11 @@ const TERRAIN_UV_SCALE = 0.24;
 const DIG_CELL_SUBDIVISIONS = 12;
 const SOLE_MIN_Z = -0.142;
 const SOLE_MAX_Z = 0.145;
-const SEAM_COLLAR = 0.035;
-const HOLE_SIDE_INSET = 0.014;
-const HOLE_END_INSET = 0.02;
+const SEAM_COLLAR = 0.05;
+const HOLE_SIDE_INSET = 0.024;
+const HOLE_END_INSET = 0.028;
+const WELL_DEPTH = 0.6;
+const WELL_SAMPLES = 36;
 const SOLE_PROFILE = [
   [SOLE_MIN_Z, 0.004], [-0.13, 0.035], [-0.085, 0.062], [-0.02, 0.07],
   [0.06, 0.059], [0.125, 0.04], [SOLE_MAX_Z, 0.004],
@@ -57,11 +60,9 @@ function createDepressedFootprintGeometry() {
   // water/sky below the terrain from appearing as a coloured fringe.
   const rows = 33;
   const columns = 17;
-  const positions = new Float32Array(rows * columns * 3);
-  const uvs = new Float32Array(rows * columns * 2);
+  const positions = [];
+  const uvs = [];
   const indices = [];
-  let p = 0;
-  let q = 0;
   for (let row = 0; row < rows; row += 1) {
     const along = row / (rows - 1);
     const z = THREE.MathUtils.lerp(
@@ -89,11 +90,8 @@ function createDepressedFootprintGeometry() {
         ? 0.021 * (1 - edge) * endFade
           + treadDepth(soleAcross, soleAlong, row, column) * (1 - edge) * endFade
         : 0;
-      positions[p++] = x;
-      positions[p++] = 0.002 - depression;
-      positions[p++] = z;
-      uvs[q++] = column / (columns - 1);
-      uvs[q++] = along;
+      positions.push(x, 0.002 - depression, z);
+      uvs.push(column / (columns - 1), along);
     }
   }
   for (let row = 0; row < rows - 1; row += 1) {
@@ -103,9 +101,56 @@ function createDepressedFootprintGeometry() {
       indices.push(a, b, a + 1, a + 1, b, b + 1);
     }
   }
+
+  // A 2cm dish only catches steep views. Sideways rays go through the
+  // terrain-mask opening, miss the sole, and show sky. These well walls sit
+  // in that opening and catch the grazing pass.
+  const outline = [];
+  for (let i = 0; i <= WELL_SAMPLES; i += 1) {
+    const z = THREE.MathUtils.lerp(
+      SOLE_MIN_Z + HOLE_END_INSET,
+      SOLE_MAX_Z - HOLE_END_INSET,
+      i / WELL_SAMPLES,
+    );
+    outline.push({ x: Math.max(0.01, soleHalfWidth(z) - HOLE_SIDE_INSET), z });
+  }
+  for (let i = WELL_SAMPLES; i >= 0; i -= 1) {
+    const z = THREE.MathUtils.lerp(
+      SOLE_MIN_Z + HOLE_END_INSET,
+      SOLE_MAX_Z - HOLE_END_INSET,
+      i / WELL_SAMPLES,
+    );
+    outline.push({ x: -Math.max(0.01, soleHalfWidth(z) - HOLE_SIDE_INSET), z });
+  }
+  const ring = outline.length;
+  const topBase = positions.length / 3;
+  for (const point of outline) {
+    positions.push(point.x, 0, point.z);
+    uvs.push(0.5 + point.x, 0.5 + point.z);
+  }
+  const botBase = positions.length / 3;
+  for (const point of outline) {
+    positions.push(point.x, -WELL_DEPTH, point.z);
+    uvs.push(0.5 + point.x, 0.5 + point.z);
+  }
+  for (let i = 0; i < ring; i += 1) {
+    const next = (i + 1) % ring;
+    const t0 = topBase + i;
+    const t1 = topBase + next;
+    const b0 = botBase + i;
+    const b1 = botBase + next;
+    indices.push(t0, b0, t1, t1, b0, b1);
+  }
+  const cap = positions.length / 3;
+  positions.push(0, -WELL_DEPTH, 0);
+  uvs.push(0.5, 0.5);
+  for (let i = 0; i < ring; i += 1) {
+    indices.push(cap, botBase + i, botBase + ((i + 1) % ring));
+  }
+
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-  geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
   geometry.computeBoundingSphere();
@@ -185,7 +230,7 @@ function createTerrainHoleMask(terrainMaterial) {
   );
   const hole = texture(maskTexture, maskUv).r;
   terrainMaterial.opacityNode = float(1).sub(hole);
-  terrainMaterial.alphaTestNode = float(0.5);
+  terrainMaterial.alphaTestNode = float(0.62);
   terrainMaterial.needsUpdate = true;
 
   function redraw(records, centreX, centreZ) {
@@ -255,10 +300,11 @@ function createEditedTerrainGeometry(heightAt, digRecords, baseGeometry) {
   for (const record of digRecords) {
     if (!record.active) continue;
     const radius = Math.max(record.radiusX || DIG_RADIUS_X, record.radiusZ || DIG_RADIUS_Z);
-    const minColumn = Math.max(0, Math.floor((record.x - radius - minX) / cellWidth) - 1);
-    const maxColumn = Math.min(TERRAIN_COLUMNS - 1, Math.floor((record.x + radius - minX) / cellWidth) + 1);
-    const minRow = Math.max(0, Math.floor((record.z - radius - minZ) / cellDepth) - 1);
-    const maxRow = Math.min(TERRAIN_ROWS - 1, Math.floor((record.z + radius - minZ) / cellDepth) + 1);
+    const pad = 2;
+    const minColumn = Math.max(0, Math.floor((record.x - radius - minX) / cellWidth) - pad);
+    const maxColumn = Math.min(TERRAIN_COLUMNS - 1, Math.floor((record.x + radius - minX) / cellWidth) + pad);
+    const minRow = Math.max(0, Math.floor((record.z - radius - minZ) / cellDepth) - pad);
+    const maxRow = Math.min(TERRAIN_ROWS - 1, Math.floor((record.z + radius - minZ) / cellDepth) + pad);
     for (let row = minRow; row <= maxRow; row += 1) {
       for (let column = minColumn; column <= maxColumn; column += 1) {
         refined.add(row * TERRAIN_COLUMNS + column);
@@ -370,6 +416,7 @@ function createImpressionPool(scene, world) {
   material.alphaTestNode = null;
   material.alphaTest = 0;
   material.opacityNode = null;
+  material.side = THREE.DoubleSide;
   material.depthWrite = true;
   material.polygonOffset = true;
   material.polygonOffsetFactor = -1;
@@ -461,7 +508,13 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
   const holes = createTerrainHoleMask(world.terrain.material);
   const originalTerrainGeometry = world.terrain.geometry;
   const originalTerrainIndex = originalTerrainGeometry.getIndex();
-  const editableTerrain = new THREE.Mesh(new THREE.BufferGeometry(), world.terrain.material);
+  const editableMaterial = world.terrain.material.clone();
+  editableMaterial.name = "Editable beach terrain material";
+  editableMaterial.alphaTestNode = null;
+  editableMaterial.alphaTest = 0;
+  editableMaterial.opacityNode = null;
+  editableMaterial.needsUpdate = true;
+  const editableTerrain = new THREE.Mesh(new THREE.BufferGeometry(), editableMaterial);
   editableTerrain.name = "Locally editable beach terrain cells";
   editableTerrain.receiveShadow = true;
   editableTerrain.castShadow = true;
@@ -481,7 +534,23 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
   let maskDirty = true;
   let simMeshCool = 0;
 
+  function editedSandAt(x, z) {
+    return Number(terrainSim?.sandAt?.(x, z)) || 0;
+  }
+
+  function canImpressTerrain(x, z) {
+    return editedSandAt(x, z) < PILE_SAND_MIN * 0.5;
+  }
+
+  function redrawHoleMask(centreX = maskCentreX, centreZ = maskCentreZ) {
+    maskCentreX = centreX;
+    maskCentreZ = centreZ;
+    holes.redraw(pool.records, maskCentreX, maskCentreZ);
+    maskDirty = false;
+  }
+
   function leaveImpression(surface, step, ground, planarScale = 1, depthScale = 1) {
+    if (!canImpressTerrain(step.x, step.z)) return;
     const side = step.leftFoot ? -1 : 1;
     forward.set(step.directionX, 0, step.directionZ).normalize();
     terrainNormalAt(step.x, step.z, normal);
@@ -542,8 +611,10 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
       const soleReach = 0.13 * footprint.planarScale;
       const localX = dx * record.rightX + dz * record.rightZ;
       const localZ = dx * record.forwardX + dz * record.forwardZ;
-      const overlap = Math.pow(Math.abs(localX) / (DIG_RADIUS_X + soleReach), 3)
-        + Math.pow(Math.abs(localZ) / (DIG_RADIUS_Z + soleReach), 3);
+      const radiusX = Math.max(DIG_RADIUS_X, Number(record.radiusX) || 0) + soleReach;
+      const radiusZ = Math.max(DIG_RADIUS_Z, Number(record.radiusZ) || 0) + soleReach;
+      const overlap = Math.pow(Math.abs(localX) / radiusX, 3)
+        + Math.pow(Math.abs(localZ) / radiusZ, 3);
       if (overlap > 1) continue;
       footprint.life = 0;
       pool.mesh.setMatrixAt(index, pool.hidden);
@@ -595,9 +666,12 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
     }
     let record = digs.records.find(candidate => candidate.active
       && Math.hypot(candidate.x - x, candidate.z - z) < EDIT_MERGE_DISTANCE);
+    const stampRadius = amount > 0 ? DUMP_RADIUS : Math.max(DIG_RADIUS_X, DIG_RADIUS_Z);
     if (record) {
       record.amount += amount;
       record.rimHeight = terrainHeight(record.x, record.z);
+      record.radiusX = Math.max(Number(record.radiusX) || 0, stampRadius);
+      record.radiusZ = Math.max(Number(record.radiusZ) || 0, stampRadius);
     } else {
       record = digs.records[digPoolCursor()];
       if (record.active) collisionWorld?.setTerrainDepression?.(record.index, null);
@@ -614,6 +688,8 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
       record.rimHeight = terrainHeight(x, z);
       record.amount = amount;
       record.waterDepth = 0;
+      record.radiusX = stampRadius;
+      record.radiusZ = stampRadius;
     }
     const hole = holeDepth(record);
     record.seaConnected = record.rimHeight <= WATER_LEVEL + 0.2
@@ -628,6 +704,7 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
     const kept = terrainSim ? (record.active = true) : syncEditCollision(record);
     digs.lastEdited = record;
     rebuildTerrainGeometry();
+    redrawHoleMask(x, z);
     const erasedLabel = erasedFootprints > 0 ? ` · erased ${erasedFootprints} footprint(s)` : "";
     if (kept) {
       console.log(`[First-Person Beach] ${label} at ${x.toFixed(2)}, ${z.toFixed(2)}${erasedLabel}`);
@@ -828,6 +905,7 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
       scene.remove(pool.mesh, digs.water, editableTerrain);
       originalTerrainGeometry.setIndex(originalTerrainIndex);
       editableTerrain.geometry.dispose();
+      editableMaterial.dispose();
       pool.geometry.dispose();
       pool.material.dispose();
       digs.waterGeometry.dispose();
