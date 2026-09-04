@@ -369,6 +369,12 @@
       "bytes": 0
     },
     {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/locomotion.mjs",
+      "path": "src/locomotion.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
       "url": "https://deserted-island.runtime.threebrowser.local/src/main.mjs",
       "path": "src/main.mjs",
       "type": "module",
@@ -405,6 +411,24 @@
       "bytes": 0
     },
     {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/sand-chunk-field.mjs",
+      "path": "src/sand-chunk-field.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/sand-repose.mjs",
+      "path": "src/sand-repose.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/sand-stamp.mjs",
+      "path": "src/sand-stamp.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
       "url": "https://deserted-island.runtime.threebrowser.local/src/scene.mjs",
       "path": "src/scene.mjs",
       "type": "module",
@@ -429,6 +453,12 @@
       "bytes": 0
     },
     {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/terrain-sim.mjs",
+      "path": "src/terrain-sim.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
       "url": "https://deserted-island.runtime.threebrowser.local/src/terrain.mjs",
       "path": "src/terrain.mjs",
       "type": "module",
@@ -443,6 +473,18 @@
     {
       "url": "https://deserted-island.runtime.threebrowser.local/src/tile-relief.mjs",
       "path": "src/tile-relief.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/water-flow.mjs",
+      "path": "src/water-flow.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/water-seepage.mjs",
+      "path": "src/water-seepage.mjs",
       "type": "module",
       "bytes": 0
     },
@@ -501,6 +543,12 @@
       "bytes": 0
     },
     {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/locomotion.test.mjs",
+      "path": "tests/locomotion.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
       "url": "https://deserted-island.runtime.threebrowser.local/tests/palm-model.test.mjs",
       "path": "tests/palm-model.test.mjs",
       "type": "module",
@@ -519,6 +567,18 @@
       "bytes": 0
     },
     {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/sand-chunk-field.test.mjs",
+      "path": "tests/sand-chunk-field.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/sand-repose.test.mjs",
+      "path": "tests/sand-repose.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
       "url": "https://deserted-island.runtime.threebrowser.local/tests/shovel-system.test.mjs",
       "path": "tests/shovel-system.test.mjs",
       "type": "module",
@@ -531,8 +591,26 @@
       "bytes": 0
     },
     {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/terrain-sim.test.mjs",
+      "path": "tests/terrain-sim.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
       "url": "https://deserted-island.runtime.threebrowser.local/tests/tile-relief.test.mjs",
       "path": "tests/tile-relief.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/water-flow.test.mjs",
+      "path": "tests/water-flow.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/water-seepage.test.mjs",
+      "path": "tests/water-seepage.test.mjs",
       "type": "module",
       "bytes": 0
     },

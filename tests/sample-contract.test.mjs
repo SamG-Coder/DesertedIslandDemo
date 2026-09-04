@@ -56,6 +56,13 @@ test("manifest registers a portable WebGPU deserted island", async () => {
     "src/footstep-logic.mjs",
     "src/footstep-system.mjs",
     "src/dig-burst.mjs",
+    "src/sand-chunk-field.mjs",
+    "src/sand-repose.mjs",
+    "src/sand-stamp.mjs",
+    "src/water-flow.mjs",
+    "src/water-seepage.mjs",
+    "src/terrain-sim.mjs",
+    "src/locomotion.mjs",
     "src/collision-system.mjs",
     "src/carryable-system.mjs",
     "src/shovel-system.mjs",
@@ -123,6 +130,8 @@ test("main wires first-person controls and hybrid RTX lighting without HTML over
   assert.match(main, /inventory\.remove/);
   assert.match(main, /dump: true/);
   assert.match(main, /dumpableSandId/);
+  assert.match(main, /createTerrainSim/);
+  assert.match(main, /attachTerrainSim/);
   assert.match(main, /createDigBurstSystem/);
   assert.match(main, /classifyDigBurst/);
   assert.match(main, /digBurst\.spawn/);
@@ -246,6 +255,7 @@ test("player gravity and solid dressing collisions remain runtime-owned", async 
   assert.match(controller, /JUMP_SPEED/);
   assert.match(controller, /GRAVITY/);
   assert.match(controller, /collisionWorld\.resolveMovement/);
+  assert.match(controller, /groundedMove/);
   assert.match(collision, /PLAYER_RADIUS/);
   assert.match(collision, /TOOL_AIM_DISTANCE/);
   assert.match(collision, /raycastSurface/);

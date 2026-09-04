@@ -254,7 +254,7 @@ function createEditedTerrainGeometry(heightAt, digRecords, baseGeometry) {
   // instead of intersecting replacement bowls.
   for (const record of digRecords) {
     if (!record.active) continue;
-    const radius = Math.max(DIG_RADIUS_X, DIG_RADIUS_Z);
+    const radius = Math.max(record.radiusX || DIG_RADIUS_X, record.radiusZ || DIG_RADIUS_Z);
     const minColumn = Math.max(0, Math.floor((record.x - radius - minX) / cellWidth) - 1);
     const maxColumn = Math.min(TERRAIN_COLUMNS - 1, Math.floor((record.x + radius - minX) / cellWidth) + 1);
     const minRow = Math.max(0, Math.floor((record.z - radius - minZ) / cellDepth) - 1);
@@ -454,7 +454,7 @@ function terrainNormalAt(x, z, target) {
   return target.set(-dx / (radius * 2), 1, -dz / (radius * 2)).normalize();
 }
 
-export function createBeachFootstepSystem(scene, world, surfaceWater = null, collisionWorld = null) {
+export function createBeachFootstepSystem(scene, world, surfaceWater = null, collisionWorld = null, terrainSim = null) {
   const audio = createNativeAudioBank();
   const pool = createImpressionPool(scene, world);
   const digs = createDigState(scene, world.heightMap);
@@ -479,6 +479,7 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
   let maskCentreX = 0;
   let maskCentreZ = 0;
   let maskDirty = true;
+  let simMeshCool = 0;
 
   function leaveImpression(surface, step, ground, planarScale = 1, depthScale = 1) {
     const side = step.leftFoot ? -1 : 1;
@@ -587,6 +588,10 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
     const x = Number(hit.x);
     const z = Number(hit.z);
     if (!Number.isFinite(x) || !Number.isFinite(z)) return false;
+    if (terrainSim) {
+      if (amount > 0) terrainSim.stampDump(hit);
+      else terrainSim.stampDig(hit);
+    }
     let record = digs.records.find(candidate => candidate.active
       && Math.hypot(candidate.x - x, candidate.z - z) < EDIT_MERGE_DISTANCE);
     if (record) {
@@ -619,7 +624,7 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
       record.waterDepth = Math.min(record.waterDepth, Math.max(0, hole - 0.008));
     }
     const erasedFootprints = eraseFootprintsNearDig(record);
-    const kept = syncEditCollision(record);
+    const kept = terrainSim ? (record.active = true) : syncEditCollision(record);
     digs.lastEdited = record;
     rebuildTerrainGeometry();
     const erasedLabel = erasedFootprints > 0 ? ` · erased ${erasedFootprints} footprint(s)` : "";
@@ -776,6 +781,14 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
     dig: digSand,
     dump: dumpSand,
     update(dt, view) {
+      if (terrainSim) {
+        const moved = terrainSim.update(dt) || 0;
+        simMeshCool -= dt;
+        if (moved > 0.01 && simMeshCool <= 0) {
+          rebuildTerrainGeometry();
+          simMeshCool = 0.12;
+        }
+      }
       updateImpressions(dt, view);
       updateDigWater(dt);
       const landingSurface = handleLanding(view);

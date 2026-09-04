@@ -1,3 +1,5 @@
+import { groundedMove } from "./locomotion.mjs";
+
 export const EYE_HEIGHT = 1.64;
 export const WALK_SPEED = 3.25;
 export const SPRINT_SPEED = 5.7;
@@ -14,6 +16,9 @@ export function createViewState(x = 0, z = -18, yaw = Math.PI, pitch = -0.06) {
     speed: 0,
     verticalVelocity: 0,
     landingImpact: 0,
+    vx: 0,
+    vz: 0,
+    slopeAngle: 0,
   };
 }
 
@@ -54,43 +59,49 @@ export function stepFirstPerson(state, input, heightAt, waterLevel, dt, collisio
   const blocked = waterDepth >= MAX_WADE_DEPTH;
   const speed = (input.sprint ? SPRINT_SPEED : WALK_SPEED) * wadeFactor(waterDepth);
   state.speed = length > 0 && !blocked ? speed : 0;
-  if (!blocked && length > 0) {
-    const nextX = state.x + wish.x * speed * delta;
-    const nextZ = state.z + wish.z * speed * delta;
-    const nextGround = heightAt(nextX, nextZ);
-    const nextDepth = Math.max(0, waterLevel - nextGround);
-    if (nextDepth < MAX_WADE_DEPTH) {
-      const resolved = collisionWorld?.resolveMovement
-        ? collisionWorld.resolveMovement(
-          state.x,
-          state.z,
-          nextX,
-          nextZ,
-          state.y - EYE_HEIGHT,
-        )
-        : { x: nextX, z: nextZ };
-      state.x = resolved.x;
-      state.z = resolved.z;
-    }
-  }
-  const floorY = heightAt(state.x, state.z) + EYE_HEIGHT;
   if (state.grounded) {
-    state.y = floorY;
-    state.verticalVelocity = 0;
-    if (input.jump && !state.wading) {
-      state.grounded = false;
-      state.verticalVelocity = JUMP_SPEED;
+    state.y = ground + EYE_HEIGHT;
+  }
+  if (state.grounded && input.jump && !state.wading) {
+    state.grounded = false;
+    state.verticalVelocity = JUMP_SPEED;
+  }
+  const airborne = !state.grounded;
+  const previousVy = state.verticalVelocity;
+  const moved = groundedMove({
+    x: state.x,
+    y: state.y,
+    z: state.z,
+    eyeHeight: EYE_HEIGHT,
+    verticalVelocity: state.verticalVelocity,
+    grounded: state.grounded,
+    vx: state.vx || 0,
+    vz: state.vz || 0,
+    wishX: blocked ? 0 : wish.x,
+    wishZ: blocked ? 0 : wish.z,
+    speed: state.speed,
+    dt: delta,
+    heightAt,
+    gravity: GRAVITY,
+    collide: collisionWorld?.resolveMovement
+      ? (x, z, feetY, nextX, nextZ) => collisionWorld.resolveMovement(x, z, nextX, nextZ, feetY)
+      : null,
+  });
+  if (!blocked) {
+    const nextDepth = Math.max(0, waterLevel - heightAt(moved.x, moved.z));
+    if (nextDepth < MAX_WADE_DEPTH) {
+      state.x = moved.x;
+      state.z = moved.z;
     }
   }
-  if (!state.grounded) {
-    state.verticalVelocity -= GRAVITY * delta;
-    state.y += state.verticalVelocity * delta;
-    if (state.y <= floorY && state.verticalVelocity <= 0) {
-      state.landingImpact = Math.max(0, -state.verticalVelocity);
-      state.y = floorY;
-      state.verticalVelocity = 0;
-      state.grounded = true;
-    }
+  state.y = moved.y;
+  state.verticalVelocity = moved.verticalVelocity;
+  state.grounded = moved.grounded;
+  state.vx = moved.vx;
+  state.vz = moved.vz;
+  state.slopeAngle = moved.slopeAngle;
+  if (moved.grounded && airborne && previousVy < 0) {
+    state.landingImpact = Math.max(0, -previousVy);
   }
   return state;
 }

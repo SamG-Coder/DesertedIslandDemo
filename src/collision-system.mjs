@@ -46,6 +46,7 @@ function containsTop(box, x, z, margin = 0) {
 export function createBeachCollisionWorld(world) {
   const colliders = [];
   const terrainDepressions = [];
+  let simHeightAt = null;
   world.dressing?.updateWorldMatrix?.(true, true);
 
   for (const palm of world.palms ?? []) {
@@ -93,6 +94,7 @@ export function createBeachCollisionWorld(world) {
   }
 
   function terrainSurfaceHeight(x, z) {
+    if (simHeightAt) return simHeightAt(x, z);
     let offset = 0;
     for (const record of terrainDepressions) {
       if (!record) continue;
@@ -197,6 +199,9 @@ export function createBeachCollisionWorld(world) {
       return supportAt(x, z);
     },
     terrainHeightAt: terrainSurfaceHeight,
+    attachTerrainSim(sim) {
+      simHeightAt = typeof sim?.heightAt === "function" ? sim.heightAt : null;
+    },
     setTerrainDepression(index, depression) {
       terrainDepressions[index] = depression ? { ...depression } : null;
     },
