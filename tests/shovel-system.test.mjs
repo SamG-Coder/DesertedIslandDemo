@@ -66,6 +66,9 @@ test("digging uses a simple right-to-left swing and shoulder follow-through", as
   assert.match(shovel, /onDig\?\.\(\{/);
   assert.match(shovel, /kind: targetKind/);
   assert.match(shovel, /targetKind === "terrain" \|\| targetKind === "rock"/);
+  assert.match(shovel, /canShovelHit/);
+  assert.match(shovel, /solidAt/);
+  assert.match(shovel, /SHOVEL_STAMP_RADIUS/);
   assert.match(shovel, /setEquipped/);
   assert.match(shovel, /carryable.carried && equipped/);
   assert.match(shovel, /forwardX: aimDirection\.x \/ horizontalLength/);

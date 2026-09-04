@@ -1,7 +1,7 @@
 export const SCOOP_VOLUME_HEIGHT = 0.16; // matches current DIG_DEPTH
-
-const SHOVEL_RADIUS_X = 0.2;
-const SHOVEL_RADIUS_Z = 0.26;
+export const SHOVEL_RADIUS_X = 0.2;
+export const SHOVEL_RADIUS_Z = 0.26;
+export const SHOVEL_STAMP_RADIUS = Math.max(SHOVEL_RADIUS_X, SHOVEL_RADIUS_Z);
 
 function clamp01(value) {
   const number = Number(value);

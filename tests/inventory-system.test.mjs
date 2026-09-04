@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  BUCKET_CAPACITY,
   HOTBAR_SIZE,
   MAX_STACK,
   createInventory,
@@ -155,4 +156,16 @@ test("HUD dirty rects merge overlaps and convert to canvas pixels", () => {
   assert.equal(merged[0].width, 30);
   const pixels = cssRectToPixelRect({ x: 100, y: 50, width: 10, height: 10 }, { x: 90, y: 40 }, 2);
   assert.deepEqual(pixels, { x: 20, y: 20, width: 20, height: 20 });
+});
+
+test("a placed bucket's fill survives pickup into the hotbar", () => {
+  const inventory = createInventory();
+  assert.equal(inventory.add("bucket", 1, { preferSelected: true }), 0);
+  const hotbar = inventory.selectedIndex();
+  assert.equal(inventory.setToolData(hotbar, { fill: 3, fillItemId: "dry-sand" }), true);
+  assert.equal(inventory.transfer(hotbar), true);
+  assert.equal(inventory.slots[0].itemId, "bucket");
+  assert.equal(inventory.slots[0].fill, 3);
+  assert.equal(inventory.slots[0].fillItemId, "dry-sand");
+  assert.equal(BUCKET_CAPACITY, 8);
 });

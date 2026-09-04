@@ -66,6 +66,8 @@ test("manifest registers a portable WebGPU deserted island", async () => {
     "src/collision-system.mjs",
     "src/carryable-system.mjs",
     "src/shovel-system.mjs",
+    "src/bucket-system.mjs",
+    "src/aim-preview.mjs",
     "src/inventory-system.mjs",
     "src/inventory-hud.mjs",
     "src/sky-cycle.mjs",
@@ -74,6 +76,8 @@ test("manifest registers a portable WebGPU deserted island", async () => {
     "assets/models/realistic-beach-palm.glb",
     "assets/models/coastal-rock-set.glb",
     "assets/models/detailed-beach-shovel.glb",
+    "assets/models/red-sand-castle-bucket.glb",
+    "assets/models/stackable-sand-castle.glb",
     "assets/audio/footstep-dry-sand-1.wav",
     "assets/audio/footstep-wet-sand-1.wav",
     "assets/audio/footstep-shallow-water-1.wav",
@@ -130,6 +134,17 @@ test("main wires first-person controls and hybrid RTX lighting without HTML over
   assert.match(main, /inventory\.remove/);
   assert.match(main, /dump: true/);
   assert.match(main, /dumpableSandId/);
+  assert.match(main, /createBeachBucket/);
+  assert.match(main, /fillPlacedBucket/);
+  assert.match(main, /moldSandCastle/);
+  assert.match(main, /interactCarryables/);
+  assert.match(main, /shovel.carried && shovel.equipped/);
+  assert.match(main, /bucket.carried && bucket.equipped/);
+  assert.match(main, /createAimPreview/);
+  assert.match(main, /canStampTerrain/);
+  assert.match(main, /event\.button === 2/);
+  assert.match(main, /fillPlacedBucket\(\)/);
+  assert.doesNotMatch(main, /if \(fillPlacedBucket\(\)\) return;/);
   assert.match(main, /createTerrainSim/);
   assert.match(main, /attachTerrainSim/);
   assert.match(main, /createDigBurstSystem/);

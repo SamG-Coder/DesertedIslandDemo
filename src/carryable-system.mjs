@@ -10,14 +10,19 @@ function removeCollider(colliders, collider) {
 }
 
 export function canInteractWithCarryable(view, objectX, objectZ, reach = 2.35) {
+  return carryableInteractScore(view, objectX, objectZ, reach) > -Infinity;
+}
+
+export function carryableInteractScore(view, objectX, objectZ, reach = 2.35) {
   const dx = objectX - view.x;
   const dz = objectZ - view.z;
   const distance = Math.hypot(dx, dz);
-  if (distance > reach) return false;
-  if (distance < 0.7) return true;
+  if (distance > reach) return -Infinity;
   const facingX = -Math.sin(view.yaw);
   const facingZ = -Math.cos(view.yaw);
-  return (dx * facingX + dz * facingZ) / Math.max(1e-6, distance) > 0.12;
+  const facing = distance < 1e-6 ? 1 : (dx * facingX + dz * facingZ) / distance;
+  if (distance >= 0.7 && facing <= 0.12) return -Infinity;
+  return facing * 4 - distance;
 }
 
 export function carryableDropPoint(view, distance = 1.35) {

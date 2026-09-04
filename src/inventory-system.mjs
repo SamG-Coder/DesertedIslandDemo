@@ -3,6 +3,9 @@ export const HOTBAR_SIZE = 9;
 export const STORAGE_COLUMNS = 9;
 export const STORAGE_ROWS = 3;
 
+export const BUCKET_CAPACITY = 8;
+export const CASTLE_SAND_COST = 8;
+
 export const BEACH_ITEMS = Object.freeze({
   shovel: Object.freeze({
     id: "shovel",
@@ -10,6 +13,13 @@ export const BEACH_ITEMS = Object.freeze({
     maxStack: 1,
     category: "tool",
     colors: Object.freeze({ top: "#d7dde4", left: "#8d5b34", right: "#6d4728" }),
+  }),
+  bucket: Object.freeze({
+    id: "bucket",
+    name: "Red Sand Bucket",
+    maxStack: 1,
+    category: "tool",
+    colors: Object.freeze({ top: "#e2182a", left: "#b41422", right: "#8c101c" }),
   }),
   "dry-sand": Object.freeze({
     id: "dry-sand",
@@ -35,12 +45,17 @@ export const BEACH_ITEMS = Object.freeze({
 });
 
 export function emptySlot() {
-  return { itemId: null, count: 0 };
+  return { itemId: null, count: 0, fill: 0, fillItemId: null };
 }
 
 export function cloneSlot(slot) {
   if (!slot?.itemId || slot.count <= 0) return emptySlot();
-  return { itemId: slot.itemId, count: slot.count };
+  const cloned = { itemId: slot.itemId, count: slot.count, fill: 0, fillItemId: null };
+  if (slot.itemId === "bucket") {
+    cloned.fill = Math.max(0, Math.trunc(slot.fill) || 0);
+    cloned.fillItemId = slot.fillItemId ?? null;
+  }
+  return cloned;
 }
 
 export function isEmptySlot(slot) {
@@ -65,9 +80,13 @@ export function harvestItemId({ kind, surface } = {}) {
   return null;
 }
 
+export function isSandItemId(itemId) {
+  return itemId === "dry-sand" || itemId === "wet-sand";
+}
+
 export function dumpableSandId(inventory) {
   const selected = inventory?.selectedItemId?.();
-  if (selected === "dry-sand" || selected === "wet-sand") return selected;
+  if (isSandItemId(selected)) return selected;
   if (inventory?.findItem?.("dry-sand") >= 0) return "dry-sand";
   if (inventory?.findItem?.("wet-sand") >= 0) return "wet-sand";
   return null;
@@ -89,13 +108,22 @@ function makeSlots(count) {
 function clearSlot(slot) {
   slot.itemId = null;
   slot.count = 0;
+  slot.fill = 0;
+  slot.fillItemId = null;
   return slot;
 }
 
-function writeSlot(slot, itemId, count) {
+function writeSlot(slot, itemId, count, extra = null) {
   if (!itemId || count <= 0) return clearSlot(slot);
   slot.itemId = itemId;
   slot.count = count;
+  if (itemId === "bucket") {
+    slot.fill = Math.max(0, Math.trunc(extra?.fill ?? slot.fill ?? 0));
+    slot.fillItemId = extra?.fillItemId ?? slot.fillItemId ?? null;
+  } else {
+    slot.fill = 0;
+    slot.fillItemId = null;
+  }
   return slot;
 }
 
@@ -302,7 +330,7 @@ export function createInventory({
       if (!inRange(index) || isEmptySlot(slots[index])) return emptySlot();
       const taken = Math.min(slots[index].count, Math.max(0, Math.trunc(count)));
       if (taken <= 0) return emptySlot();
-      const result = { itemId: slots[index].itemId, count: taken };
+      const result = cloneSlot({ ...slots[index], count: taken });
       slots[index].count -= taken;
       if (slots[index].count <= 0) clearSlot(slots[index]);
       notify();
@@ -313,8 +341,15 @@ export function createInventory({
       if (!isEmptySlot(cursor)) return false;
       const amount = half ? Math.max(1, Math.ceil(slots[index].count / 2)) : slots[index].count;
       const taken = inventory.takeFromSlot(index, amount);
-      writeSlot(cursor, taken.itemId, taken.count);
+      writeSlot(cursor, taken.itemId, taken.count, taken);
       dragOrigin = index;
+      notify();
+      return true;
+    },
+    setToolData(index, { fill = 0, fillItemId = null } = {}) {
+      if (!inRange(index) || slots[index].itemId !== "bucket") return false;
+      slots[index].fill = Math.max(0, Math.min(BUCKET_CAPACITY, Math.trunc(fill) || 0));
+      slots[index].fillItemId = slots[index].fill > 0 && isSandItemId(fillItemId) ? fillItemId : null;
       notify();
       return true;
     },
@@ -325,7 +360,7 @@ export function createInventory({
       const cap = itemCap(cursor.itemId);
       if (isEmptySlot(slot)) {
         const moved = one ? 1 : cursor.count;
-        writeSlot(slot, cursor.itemId, moved);
+        writeSlot(slot, cursor.itemId, moved, cursor);
         cursor.count -= moved;
         if (cursor.count <= 0) {
           clearSlot(cursor);
@@ -348,46 +383,59 @@ export function createInventory({
       }
       if (one) return false;
       const held = cloneSlot(cursor);
-      writeSlot(cursor, slot.itemId, slot.count);
-      writeSlot(slot, held.itemId, held.count);
+      const parked = cloneSlot(slot);
+      writeSlot(cursor, parked.itemId, parked.count, parked);
+      writeSlot(slot, held.itemId, held.count, held);
       dragOrigin = index;
       notify();
       return true;
     },
     transfer(index) {
       if (!inRange(index) || isEmptySlot(slots[index])) return false;
-      const itemId = slots[index].itemId;
-      const count = slots[index].count;
+      const moving = cloneSlot(slots[index]);
       const targets = inventory.isHotbar(index) ? storageThenHotbar() : hotbarThenStorage();
       const filtered = targets.filter(target => target !== index);
       clearSlot(slots[index]);
-      let remaining = fillExisting(itemId, count, filtered);
-      remaining = fillEmpty(itemId, remaining, filtered);
-      if (remaining > 0) writeSlot(slots[index], itemId, remaining);
+      let remaining = fillExisting(moving.itemId, moving.count, filtered);
+      remaining = fillEmpty(moving.itemId, remaining, filtered);
+      if (remaining > 0) writeSlot(slots[index], moving.itemId, remaining, moving);
+      else if (moving.itemId === "bucket") {
+        const dest = inventory.findItem("bucket");
+        if (dest >= 0) {
+          slots[dest].fill = moving.fill;
+          slots[dest].fillItemId = moving.fillItemId;
+        }
+      }
       notify();
-      return remaining < count;
+      return remaining < moving.count;
     },
     parkCursor() {
       if (isEmptySlot(cursor)) return 0;
-      const itemId = cursor.itemId;
-      const count = cursor.count;
+      const moving = cloneSlot(cursor);
       clearSlot(cursor);
-      let remaining = count;
+      let remaining = moving.count;
       if (inRange(dragOrigin) && isEmptySlot(slots[dragOrigin])) {
-        remaining = fillEmpty(itemId, remaining, [dragOrigin]);
+        remaining = fillEmpty(moving.itemId, remaining, [dragOrigin]);
       }
-      remaining = inventory.add(itemId, remaining);
+      remaining = inventory.add(moving.itemId, remaining);
       if (remaining > 0 && inRange(dragOrigin)) {
         const slot = slots[dragOrigin];
-        if (isEmptySlot(slot) || slot.itemId === itemId) {
-          const cap = itemCap(itemId);
+        if (isEmptySlot(slot) || slot.itemId === moving.itemId) {
+          const cap = itemCap(moving.itemId);
           const already = isEmptySlot(slot) ? 0 : slot.count;
           const moved = Math.min(Math.max(0, cap - already), remaining);
-          writeSlot(slot, itemId, already + moved);
+          writeSlot(slot, moving.itemId, already + moved, moving);
           remaining -= moved;
         }
       }
-      if (remaining > 0) writeSlot(cursor, itemId, remaining);
+      if (moving.itemId === "bucket" && remaining === 0) {
+        const dest = inventory.findItem("bucket");
+        if (dest >= 0) {
+          slots[dest].fill = moving.fill;
+          slots[dest].fillItemId = moving.fillItemId;
+        }
+      }
+      if (remaining > 0) writeSlot(cursor, moving.itemId, remaining, moving);
       else dragOrigin = -1;
       notify();
       return remaining;

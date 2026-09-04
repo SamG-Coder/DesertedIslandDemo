@@ -2,6 +2,7 @@ import * as THREE from "three/webgpu";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { createCarryableObject } from "./carryable-system.mjs";
 import { TOOL_AIM_DISTANCE } from "./collision-system.mjs";
+import { SHOVEL_STAMP_RADIUS } from "./sand-stamp.mjs";
 
 const READY_POSITION = new THREE.Vector3(-0.58, 0.06, -0.68);
 const READY_ROTATION = new THREE.Euler(-0.18, 0.12, -2.02, "XYZ");
@@ -23,6 +24,13 @@ const RECOVER_SECONDS = 0.3;
 function smoothstep01(value) {
   const t = THREE.MathUtils.clamp(value, 0, 1);
   return t * t * (3 - 2 * t);
+}
+
+export function canShovelHit(hit, collisionWorld) {
+  if (!hit) return false;
+  if (hit.kind === "rock") return true;
+  if (hit.kind !== "terrain") return false;
+  return !collisionWorld?.solidAt?.(hit.x, hit.z, SHOVEL_STAMP_RADIUS);
 }
 
 function createDigAnimation(object, camera, collisionWorld, isCarried, onDig) {
@@ -73,7 +81,7 @@ function createDigAnimation(object, camera, collisionWorld, isCarried, onDig) {
           aimDirection.clone().multiplyScalar(DIG_AIM_TRACE).add(aimOrigin),
           0.035,
         );
-      if (!aimedContact) return false;
+      if (!canShovelHit(aimedContact, collisionWorld)) return false;
       startPosition.copy(object.position);
       startRotation.copy(object.quaternion);
       targetWorld.set(aimedContact.x, aimedContact.y, aimedContact.z);

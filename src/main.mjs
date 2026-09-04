@@ -2,6 +2,9 @@ import * as THREE from "three/webgpu";
 import WebGPU from "three/addons/capabilities/WebGPU.js";
 import { createViewState, stepFirstPerson, cameraOrientation } from "./first-person.mjs";
 import { createBeachCollisionWorld, TOOL_AIM_DISTANCE } from "./collision-system.mjs";
+import { carryableInteractScore } from "./carryable-system.mjs";
+import { SHOVEL_RADIUS_X, SHOVEL_RADIUS_Z, SHOVEL_STAMP_RADIUS } from "./sand-stamp.mjs";
+import { createAimPreview } from "./aim-preview.mjs";
 import { createBeachFootstepSystem } from "./footstep-system.mjs";
 import { loadAllTileMaps, syncSkyUniforms, waterTime } from "./materials.mjs";
 import { applySkyCycle, createSkyClock } from "./sky-cycle.mjs";
@@ -14,10 +17,11 @@ import { buildBeachScene, createBeachEnvironment, WATER_LEVEL, WORLD } from "./s
 import { terrainHeight } from "./terrain.mjs";
 import { createTerrainSim } from "./terrain-sim.mjs";
 import { createBeachWeather } from "./weather.mjs";
-import { createBeachShovel } from "./shovel-system.mjs";
+import { canShovelHit, createBeachShovel } from "./shovel-system.mjs";
+import { CASTLE_FOOTPRINT_RADIUS, createBeachBucket } from "./bucket-system.mjs";
 import { classifyBeachSurface, classifyDigBurst } from "./footstep-logic.mjs";
 import { createDigBurstSystem } from "./dig-burst.mjs";
-import { createInventory, dumpableSandId, harvestItemId, hotbarIndexFromCode } from "./inventory-system.mjs";
+import { CASTLE_SAND_COST, createInventory, dumpableSandId, harvestItemId, hotbarIndexFromCode, isSandItemId } from "./inventory-system.mjs";
 import { createInventoryHud } from "./inventory-hud.mjs";
 import { isBrowserHost, reportProgress, yieldToBrowser } from "./async-load.mjs";
 
@@ -100,7 +104,7 @@ renderer.backend.device?.addEventListener?.("uncapturederror", event => {
 
 const rtx = navigator.gpu?.threeBrowserRTX ?? null;
 reportBridge(rtx);
-console.log("[First-Person Beach] Click/dig · Right-click dump sand · WASD walk · Shift sprint · Space jump · E carry/drop · Tab inventory · 1-9 hotbar · X RTX");
+console.log("[First-Person Beach] Click/dig · Right-click fill bucket, dump sand, or mold castle · WASD walk · Shift sprint · Space jump · E carry/drop · Tab inventory · 1-9 hotbar · X RTX");
 
 const scene = new THREE.Scene();
 scene.name = "First-person tropical beach";
@@ -193,12 +197,14 @@ const aimDirection = new THREE.Vector3();
 
 function dumpOntoGround() {
   if (hud.open || shovel.digging) return false;
+  if (bucket.carried && bucket.equipped) return false;
   const itemId = dumpableSandId(inventory);
   if (!itemId) return false;
   camera.getWorldPosition(aimOrigin);
   camera.getWorldDirection(aimDirection);
   const hit = collisionWorld.raycastSurface(aimOrigin, aimDirection, TOOL_AIM_DISTANCE);
   if (!hit || hit.kind !== "terrain") return false;
+  if (!collisionWorld.canStampTerrain(hit.x, hit.z, SHOVEL_STAMP_RADIUS)) return false;
   if (inventory.remove(itemId, 1) < 1) return false;
   const horizontal = Math.hypot(aimDirection.x, aimDirection.z) || 1;
   const dumpHit = {
@@ -223,10 +229,156 @@ const shovel = await createBeachShovel(
   collisionWorld,
   collectFromDig,
 );
+const bucket = await createBeachBucket({
+  scene,
+  camera,
+  view,
+  collisionWorld,
+});
 
-function syncShovelEquipment() {
-  shovel.setEquipped(shovel.carried && inventory.selectedItemId() === "shovel");
+function persistBucketFill() {
+  const index = inventory.findItem("bucket");
+  if (index < 0) return;
+  inventory.setToolData(index, { fill: bucket.fill, fillItemId: bucket.fillItemId });
 }
+
+function syncToolEquipment() {
+  shovel.setEquipped(shovel.carried && inventory.selectedItemId() === "shovel");
+  bucket.setEquipped(bucket.carried && inventory.selectedItemId() === "bucket");
+}
+
+function fillPlacedBucket() {
+  if (hud.open || bucket.carried) return false;
+  const itemId = inventory.selectedItemId();
+  const sandId = isSandItemId(itemId) ? itemId : dumpableSandId(inventory);
+  if (!sandId) return false;
+  camera.getWorldPosition(aimOrigin);
+  camera.getWorldDirection(aimDirection);
+  const hit = collisionWorld.raycastSurface(aimOrigin, aimDirection, TOOL_AIM_DISTANCE);
+  if (bucket.tryFill(sandId, hit) < 1) return false;
+  if (inventory.remove(sandId, 1) < 1) {
+    bucket.setFill(bucket.fill - 1, bucket.fillItemId);
+    return false;
+  }
+  hud.markDirty();
+  console.log(`[First-Person Beach] Bucket ${bucket.fill}/8 ${inventory.catalog[sandId]?.name ?? sandId}`);
+  return true;
+}
+
+function moldSandCastle() {
+  if (hud.open || !bucket.carried || !bucket.equipped) return false;
+  camera.getWorldPosition(aimOrigin);
+  camera.getWorldDirection(aimDirection);
+  const hit = collisionWorld.raycastSurface(aimOrigin, aimDirection, TOOL_AIM_DISTANCE);
+  if (!bucket.tryMold(hit)) return false;
+  persistBucketFill();
+  hud.markDirty();
+  console.log("[First-Person Beach] Molded a sand castle");
+  return true;
+}
+
+const interactPosition = new THREE.Vector3();
+const aimPreview = createAimPreview(scene);
+
+function currentAim() {
+  if (hud.open) return null;
+  camera.getWorldPosition(aimOrigin);
+  camera.getWorldDirection(aimDirection);
+  const hit = collisionWorld.raycastSurface(aimOrigin, aimDirection, TOOL_AIM_DISTANCE);
+  if (!hit) return null;
+  const yaw = Math.atan2(aimDirection.x, aimDirection.z);
+  const sandId = dumpableSandId(inventory);
+  if (bucket.carried && bucket.equipped) {
+    const stampOk = hit.kind === "castle"
+      || (hit.kind === "terrain" && collisionWorld.canStampTerrain(hit.x, hit.z, CASTLE_FOOTPRINT_RADIUS));
+    return {
+      mode: "castle",
+      x: hit.kind === "castle" ? (hit.collider?.stackX ?? hit.x) : hit.x,
+      y: hit.kind === "castle" ? (hit.collider?.maxY ?? hit.y) : hit.y,
+      z: hit.kind === "castle" ? (hit.collider?.stackZ ?? hit.z) : hit.z,
+      radiusX: CASTLE_FOOTPRINT_RADIUS,
+      radiusZ: CASTLE_FOOTPRINT_RADIUS,
+      yaw: 0,
+      valid: bucket.fill >= CASTLE_SAND_COST && Boolean(bucket.fillItemId) && stampOk,
+    };
+  }
+  if (!bucket.carried && hit.kind === "bucket" && bucket.lookingAtPlacedBucket()) {
+    const selected = inventory.selectedItemId();
+    const fillId = isSandItemId(selected) ? selected : sandId;
+    const typeOk = !bucket.fillItemId || bucket.fillItemId === fillId;
+    return {
+      mode: "fill",
+      x: hit.x,
+      y: hit.y,
+      z: hit.z,
+      radiusX: 0.14,
+      radiusZ: 0.14,
+      yaw: 0,
+      valid: Boolean(fillId) && bucket.fill < 8 && typeOk,
+    };
+  }
+  if (shovel.carried && shovel.equipped) {
+    return {
+      mode: "dig",
+      x: hit.x,
+      y: hit.y,
+      z: hit.z,
+      radiusX: SHOVEL_RADIUS_X,
+      radiusZ: SHOVEL_RADIUS_Z,
+      yaw,
+      valid: canShovelHit(hit, collisionWorld),
+    };
+  }
+  if (sandId) {
+    return {
+      mode: "dump",
+      x: hit.x,
+      y: hit.y,
+      z: hit.z,
+      radiusX: SHOVEL_RADIUS_X,
+      radiusZ: SHOVEL_RADIUS_Z,
+      yaw,
+      valid: hit.kind === "terrain" && collisionWorld.canStampTerrain(hit.x, hit.z, SHOVEL_STAMP_RADIUS),
+    };
+  }
+  return null;
+}
+
+function takeTool(itemId, persist) {
+  inventory.add(itemId, 1, { preferSelected: true });
+  persist?.();
+  const index = inventory.findItem(itemId);
+  if (index >= inventory.storageSize) inventory.selectHotbar(index - inventory.storageSize);
+}
+
+function interactCarryables() {
+  if (shovel.carried && shovel.equipped) {
+    if (shovel.interact()) inventory.remove("shovel", 1);
+    return;
+  }
+  if (bucket.carried && bucket.equipped) {
+    persistBucketFill();
+    if (bucket.interact()) inventory.remove("bucket", 1);
+    return;
+  }
+  shovel.object.getWorldPosition(interactPosition);
+  const shovelScore = shovel.carried ? -Infinity : carryableInteractScore(view, interactPosition.x, interactPosition.z);
+  bucket.object.getWorldPosition(interactPosition);
+  const bucketScore = bucket.carried ? -Infinity : carryableInteractScore(view, interactPosition.x, interactPosition.z);
+  const preferBucket = bucketScore > shovelScore;
+  if (preferBucket && !bucket.carried && inventory.canAdd("bucket", 1) && bucket.interact()) {
+    takeTool("bucket", persistBucketFill);
+    return;
+  }
+  if (!shovel.carried && inventory.canAdd("shovel", 1) && shovel.interact()) {
+    takeTool("shovel");
+    return;
+  }
+  if (!bucket.carried && inventory.canAdd("bucket", 1) && bucket.interact()) {
+    takeTool("bucket", persistBucketFill);
+  }
+}
+
 prepareRtxGuideMaterials(scene);
 await yieldToBrowser();
 
@@ -322,14 +474,15 @@ canvas.addEventListener("pointerdown", event => {
   footsteps.arm();
   const locked = document.pointerLockElement === canvas;
   const ui = hud.handlePointer(event, canvas, { pointerLocked: locked });
-  syncShovelEquipment();
+  syncToolEquipment();
   if (hud.open || ui.handled) {
     looking = false;
     if (hud.open) document.exitPointerLock?.();
     return;
   }
   if (event.button === 2) {
-    dumpOntoGround();
+    if (bucket.carried && bucket.equipped) moldSandCastle();
+    else if (!fillPlacedBucket()) dumpOntoGround();
     return;
   }
   if (event.button !== 0) return;
@@ -346,7 +499,7 @@ canvas.addEventListener("pointerup", event => {
   hud.handlePointer(event, canvas, {
     pointerLocked: document.pointerLockElement === canvas,
   });
-  syncShovelEquipment();
+  syncToolEquipment();
   looking = false;
   try {
     canvas.releasePointerCapture?.(event.pointerId);
@@ -388,7 +541,7 @@ addEventListener("keydown", event => {
   const hotbar = hotbarIndexFromCode(event.code);
   if (hotbar >= 0) {
     inventory.selectHotbar(hotbar);
-    syncShovelEquipment();
+    syncToolEquipment();
     hud.markDirty();
     return;
   }
@@ -409,16 +562,8 @@ addEventListener("keydown", event => {
     event.preventDefault?.();
   }
   if (event.code === "KeyE" && !event.repeat) {
-    if (shovel.carried) {
-      if (shovel.interact()) inventory.remove("shovel", 1);
-    } else if (inventory.canAdd("shovel", 1) && shovel.interact()) {
-      inventory.add("shovel", 1, { preferSelected: true });
-      const index = inventory.findItem("shovel");
-      if (index >= inventory.storageSize) {
-        inventory.selectHotbar(index - inventory.storageSize);
-      }
-    }
-    syncShovelEquipment();
+    interactCarryables();
+    syncToolEquipment();
     hud.markDirty();
   }
 });
@@ -462,8 +607,10 @@ renderer.setAnimationLoop(() => {
   });
   const weatherFrame = weather.update(dt, sky, world);
   footsteps.update(dt, view);
-  syncShovelEquipment();
+  syncToolEquipment();
   shovel.update(dt);
+  bucket.update(dt);
+  aimPreview.update(currentAim());
   digBurst.update(dt);
   hud.sync(renderer);
 
@@ -532,6 +679,8 @@ addEventListener("beforeunload", () => {
   footsteps.dispose();
   digBurst.dispose();
   shovel.dispose();
+  bucket.dispose();
+  aimPreview.dispose();
   hud.dispose();
   rtxRenderer.dispose();
 });

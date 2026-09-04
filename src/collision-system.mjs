@@ -208,6 +208,19 @@ export function createBeachCollisionWorld(world) {
     pointContact,
     raycastSurface,
     sweepPoint,
+    solidAt(x, z, radius = 0.05, ignoreKinds = null) {
+      for (const collider of colliders) {
+        if (ignoreKinds?.has?.(collider.kind)) continue;
+        if (overlaps(collider, x, z, radius)) return collider;
+      }
+      return null;
+    },
+    canStampTerrain(x, z, radius = 0.22) {
+      for (const collider of colliders) {
+        if (overlaps(collider, x, z, radius)) return false;
+      }
+      return true;
+    },
     resolveMovement(fromX, fromZ, toX, toZ, feetY) {
       let x = fromX;
       let z = fromZ;

@@ -299,6 +299,26 @@ export function pointerToHud(event, element, cssWidth, cssHeight) {
   };
 }
 
+function paintBucket(ctx, x, y, size) {
+  const s = size;
+  ctx.save();
+  ctx.translate(x + s / 2, y + s * 0.58);
+  ctx.fillStyle = "#e2182a";
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.22, -s * 0.2);
+  ctx.lineTo(s * 0.22, -s * 0.2);
+  ctx.lineTo(s * 0.155, s * 0.2);
+  ctx.lineTo(-s * 0.155, s * 0.2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "#f0c000";
+  ctx.lineWidth = Math.max(2, s * 0.05);
+  ctx.beginPath();
+  ctx.arc(0, -s * 0.2, s * 0.2, Math.PI, 0, true);
+  ctx.stroke();
+  ctx.restore();
+}
+
 function paintShovel(ctx, x, y, size) {
   const s = size;
   ctx.save();
@@ -383,8 +403,9 @@ function paintIsoCube(ctx, x, y, size, colors, image) {
   fillFace(rightPath, colors.right, "rgba(0,0,0,0.28)");
 }
 
-function paintCount(target, rect, count, scale) {
-  if (count <= 1) return;
+function paintCount(target, rect, count, scale, { always = false } = {}) {
+  if (!always && count <= 1) return;
+  if (always && count <= 0) return;
   const text = String(count);
   const fontSize = Math.max(10, Math.round(13 * scale));
   target.font = `700 ${fontSize}px "Segoe UI", "Helvetica Neue", sans-serif`;
@@ -484,7 +505,7 @@ export function createInventoryHud({
 
   function slotVisualKey(index) {
     const slot = inventory.slot(index);
-    return `${slot.itemId}:${slot.count}:${index === inventory.selectedIndex()}:${index === hoverIndex}`;
+    return `${slot.itemId}:${slot.count}:${slot.fill ?? 0}:${index === inventory.selectedIndex()}:${index === hoverIndex}`;
   }
 
   function slotDirtyRect(slotRect) {
@@ -527,7 +548,8 @@ export function createInventoryHud({
     baked.width = pixels;
     baked.height = pixels;
     const iconCtx = baked.getContext("2d");
-    if (item.category === "tool") paintShovel(iconCtx, 0, 0, pixels);
+    if (item.id === "bucket") paintBucket(iconCtx, 0, 0, pixels);
+    else if (item.category === "tool") paintShovel(iconCtx, 0, 0, pixels);
     else paintIsoCube(iconCtx, 0, 0, pixels, item.colors, itemImage(item.id));
     iconCache.set(key, baked);
     return baked;
@@ -543,7 +565,13 @@ export function createInventoryHud({
     if (ghost) targetCtx.globalAlpha = 0.88;
     targetCtx.drawImage(icon, rect.x + inset, rect.y + inset, rect.size - inset * 2, rect.size - inset * 2);
     targetCtx.restore();
-    paintCount(targetCtx, rect, slot.count, scale);
+    paintCount(
+      targetCtx,
+      rect,
+      slot.itemId === "bucket" ? (slot.fill || 0) : slot.count,
+      scale,
+      { always: slot.itemId === "bucket" },
+    );
   }
 
   function paintSlot(rect, { selected = false, hover = false, showKey = false } = {}) {
