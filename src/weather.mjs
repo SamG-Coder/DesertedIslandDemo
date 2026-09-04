@@ -23,6 +23,7 @@ import {
   vec4,
 } from "three/tsl";
 import { createSurfaceWaterSystem } from "./surface-water.mjs";
+import { QUALITY } from "./quality.mjs";
 import { WATER_LEVEL, terrainHeight } from "./terrain.mjs";
 
 // World units are metres. Keep the tropical low-cloud deck well above every
@@ -31,9 +32,11 @@ const CLOUD_BASE = 650;
 const CLOUD_TOP = 950;
 const CLOUD_SPAN_Y = CLOUD_TOP - CLOUD_BASE;
 const CLOUD_SHELL_RADIUS = 3900;
-const CLOUD_VIEW_STEPS = 48;
+const CLOUD_VIEW_STEPS = QUALITY.cloudSteps;
 const CLOUD_MAX_DISTANCE = 3800;
-const RAIN_COUNT = 1800;
+const RAIN_COUNT = QUALITY.rainCount;
+const RAIN_GROUND_CHECK_Y = 12;
+const RAIN_OBJECT_CHECK_Y = 18;
 const RAIN_RADIUS_X = 92;
 const RAIN_RADIUS_Z = 118;
 
@@ -172,8 +175,9 @@ function createCloudVolume() {
 
       // A forward density probe approximates Beer-Lambert self-shadowing.
       // It creates dark rain-bearing cores while sun-facing edges stay bright.
-      const lightProbe = cloudDensityNode(point.add(cloudKeyDirection.mul(16)));
-      const lightTransmission = exp(lightProbe.mul(-2.8));
+      const lightTransmission = QUALITY.cloudLightProbe
+        ? exp(cloudDensityNode(point.add(cloudKeyDirection.mul(16))).mul(-2.8))
+        : float(0.62);
       const phase = pow(saturate(dot(ray.negate(), cloudKeyDirection)), 10);
       const edge = pow(float(1).sub(saturate(density)), 2);
       const ambient = mix(
@@ -215,7 +219,7 @@ function createCloudVolume() {
   material.fog = false;
 
   const volume = new THREE.Mesh(
-    new THREE.SphereGeometry(CLOUD_SHELL_RADIUS, 48, 24),
+    new THREE.SphereGeometry(CLOUD_SHELL_RADIUS, QUALITY.cloudShellWidth, QUALITY.cloudShellHeight),
     material,
   );
   volume.name = "Atmospheric-shell coastal storm clouds";
@@ -324,56 +328,66 @@ export function createBeachWeather(scene, camera, world) {
           : 0.08 + clamp01(key.intensity / 0.42) * 0.24;
       }
       const localRain = rainPotentialAt(camera.position.x, camera.position.z, elapsed, storm);
-
-      // Keep enough drops cycling each frame without a bursty full-field reset.
-      const refreshes = Math.max(4, Math.round(18 + localRain * 46));
-      for (let i = 0; i < rain.drops.length; i += 1) {
-        const drop = rain.drops[i];
-        const index = i * 6;
-        if (!drop.active) {
-          rain.positions[index] = rain.positions[index + 3] = camera.position.x;
-          rain.positions[index + 1] = rain.positions[index + 4] = -1000;
-          rain.positions[index + 2] = rain.positions[index + 5] = camera.position.z;
-          continue;
+      const raining = localRain > 0.025 || storm > 0.38;
+      rain.lines.visible = raining;
+      rain.material.opacity = raining ? 0.08 + localRain * 0.62 : 0;
+      if (raining) {
+        // Keep enough drops cycling each frame without a bursty full-field reset.
+        const refreshes = Math.max(4, Math.round(18 + localRain * 46));
+        for (let i = 0; i < rain.drops.length; i += 1) {
+          const drop = rain.drops[i];
+          const index = i * 6;
+          if (!drop.active) {
+            rain.positions[index] = rain.positions[index + 3] = camera.position.x;
+            rain.positions[index + 1] = rain.positions[index + 4] = -1000;
+            rain.positions[index + 2] = rain.positions[index + 5] = camera.position.z;
+            continue;
+          }
+          const previousY = drop.y;
+          drop.y -= drop.speed * dt;
+          drop.x += drop.drift * dt;
+          drop.z += 0.82 * dt;
+          let hit = false;
+          if (drop.y < RAIN_OBJECT_CHECK_Y) {
+            const objectHit = surfaceWater.findObjectImpact(drop.x, drop.z, previousY, drop.y);
+            if (objectHit) {
+              surfaceWater.impact({ ...objectHit, intensity: drop.speed / 34 });
+              respawn(drop);
+              hit = true;
+            } else if (drop.y < RAIN_GROUND_CHECK_Y) {
+              const ground = terrainHeight(drop.x, drop.z);
+              const overWater = ground < WATER_LEVEL - 0.025;
+              const surfaceY = overWater ? WATER_LEVEL : ground;
+              if (drop.y < surfaceY) {
+                surfaceWater.impact({
+                  x: drop.x,
+                  y: surfaceY + 0.025,
+                  z: drop.z,
+                  kind: overWater ? "water" : "terrain",
+                  intensity: drop.speed / 34,
+                });
+                respawn(drop);
+                hit = true;
+              }
+            }
+          }
+          if (!hit && (Math.abs(drop.x - camera.position.x) > RAIN_RADIUS_X * 1.15
+            || Math.abs(drop.z - camera.position.z) > RAIN_RADIUS_Z * 1.15)) {
+            respawn(drop);
+          }
+          rain.positions[index] = drop.x;
+          rain.positions[index + 1] = drop.y;
+          rain.positions[index + 2] = drop.z;
+          rain.positions[index + 3] = drop.x - 0.045;
+          rain.positions[index + 4] = drop.y + drop.length;
+          rain.positions[index + 5] = drop.z - 0.018;
         }
-        const previousY = drop.y;
-        drop.y -= drop.speed * dt;
-        drop.x += drop.drift * dt;
-        drop.z += 0.82 * dt;
-        const ground = terrainHeight(drop.x, drop.z);
-        const objectHit = surfaceWater.findObjectImpact(drop.x, drop.z, previousY, drop.y);
-        const overWater = ground < WATER_LEVEL - 0.025;
-        const surfaceY = overWater ? WATER_LEVEL : ground;
-        if (objectHit) {
-          surfaceWater.impact({ ...objectHit, intensity: drop.speed / 34 });
-          respawn(drop);
-        } else if (drop.y < surfaceY) {
-          surfaceWater.impact({
-            x: drop.x,
-            y: surfaceY + 0.025,
-            z: drop.z,
-            kind: overWater ? "water" : "terrain",
-            intensity: drop.speed / 34,
-          });
-          respawn(drop);
-        } else if (Math.abs(drop.x - camera.position.x) > RAIN_RADIUS_X * 1.15
-          || Math.abs(drop.z - camera.position.z) > RAIN_RADIUS_Z * 1.15) {
-          respawn(drop);
+        for (let i = 0; i < refreshes; i += 1) {
+          cursor = (cursor + 97) % rain.drops.length;
+          if (!rain.drops[cursor].active) respawn(rain.drops[cursor]);
         }
-        rain.positions[index] = drop.x;
-        rain.positions[index + 1] = drop.y;
-        rain.positions[index + 2] = drop.z;
-        rain.positions[index + 3] = drop.x - 0.045;
-        rain.positions[index + 4] = drop.y + drop.length;
-        rain.positions[index + 5] = drop.z - 0.018;
+        rain.attribute.needsUpdate = true;
       }
-      for (let i = 0; i < refreshes; i += 1) {
-        cursor = (cursor + 97) % rain.drops.length;
-        if (!rain.drops[cursor].active) respawn(rain.drops[cursor]);
-      }
-      rain.attribute.needsUpdate = true;
-      rain.material.opacity = 0.08 + localRain * 0.62;
-      rain.lines.visible = localRain > 0.025 || storm > 0.38;
       surfaceWater.update(dt);
 
       // Weather acts on the lighting after the day/night cycle has established

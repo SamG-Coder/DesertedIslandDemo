@@ -73,7 +73,9 @@ export function createBeachFoamField(renderer, {
   stepHz = DEFAULT_STEP_HZ,
   decaySeconds = DEFAULT_DECAY_SECONDS,
   spread = DEFAULT_SPREAD,
+  maxStepsPerUpdate = MAX_STEPS_PER_UPDATE,
 } = {}) {
+  const stepBudget = Math.max(1, Math.floor(finiteNumber(maxStepsPerUpdate, MAX_STEPS_PER_UPDATE)));
   if (!renderer || typeof renderer.compute !== "function") {
     throw new TypeError("Beach foam requires an initialized WebGPU renderer.");
   }
@@ -253,15 +255,15 @@ export function createBeachFoamField(renderer, {
       if (disposed || !active) return 0;
       const delta = Math.max(0, Math.min(
         finiteNumber(deltaSeconds, 0),
-        fixedStep * MAX_STEPS_PER_UPDATE,
+        fixedStep * stepBudget,
       ));
       accumulator = Math.min(
         accumulator + delta,
-        fixedStep * MAX_STEPS_PER_UPDATE,
+        fixedStep * stepBudget,
       );
 
       let submitted = 0;
-      while (accumulator + 1e-9 >= fixedStep && submitted < MAX_STEPS_PER_UPDATE) {
+      while (accumulator + 1e-9 >= fixedStep && submitted < stepBudget) {
         stepDelta.value = fixedStep;
         renderer.compute(steps[parity]);
         parity ^= 1;

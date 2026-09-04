@@ -23,6 +23,7 @@ import {
   createTerrainHeightTexture,
   terrainHeight,
 } from "./terrain.mjs";
+import { QUALITY } from "./quality.mjs";
 
 function mulberry32(seed) {
   let value = seed >>> 0;
@@ -53,7 +54,7 @@ function createLighting(scene) {
   sun.position.set(-48, 54, 86);
   sun.target.position.set(0, 0, 4);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.mapSize.set(QUALITY.shadowMapSize, QUALITY.shadowMapSize);
   sun.shadow.camera.left = -70;
   sun.shadow.camera.right = 70;
   sun.shadow.camera.top = 50;
@@ -79,7 +80,7 @@ function createLighting(scene) {
 }
 
 function createWater(scene, heightMap, foamField) {
-  const geometry = new THREE.PlaneGeometry(320, 280, 180, 140);
+  const geometry = new THREE.PlaneGeometry(320, 280, QUALITY.waterSegmentsX, QUALITY.waterSegmentsZ);
   geometry.rotateX(-Math.PI * 0.5);
   geometry.translate(0, 0, 78);
   const sample = foamField ? point => foamField.sampleNode(point) : null;
@@ -220,22 +221,23 @@ export async function buildBeachScene(scene, maps, renderer) {
   );
   terrain.name = "Beach heightfield";
   terrain.receiveShadow = true;
-  terrain.castShadow = true;
+  terrain.castShadow = QUALITY.terrainCastShadow;
   scene.add(terrain);
 
   const foamField = createBeachFoamField(renderer, {
     injectionNode: point => breakingInjectionNode(point, heightMap),
     velocityNode: foamVelocityNode,
-    size: 512,
+    size: QUALITY.foamSize,
     worldSize: 320,
     originX: 0,
     originZ: 78,
-    stepHz: 30,
+    stepHz: QUALITY.foamHz,
     decaySeconds: 6.4,
     spread: 1.25,
+    maxStepsPerUpdate: QUALITY.foamMaxSteps,
   });
   foamField.clear();
-  preRollFoam(foamField);
+  preRollFoam(foamField, QUALITY.foamPreRollSeconds);
   const water = createWater(scene, heightMap, foamField);
   const stars = createStarField(THREE);
   stars.material.opacityNode = skyNight;

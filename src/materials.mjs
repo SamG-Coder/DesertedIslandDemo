@@ -34,6 +34,7 @@ import {
 } from "three/tsl";
 import { HEIGHT_BOUNDS, WATER_LEVEL } from "./terrain.mjs";
 import { loadTextureAsync, mapPool, reportProgress, yieldToBrowser } from "./async-load.mjs";
+import { QUALITY } from "./quality.mjs";
 import { cloudShadowNode } from "./weather.mjs";
 export const waterTime = uniform(0);
 export const waterLevel = uniform(WATER_LEVEL);
@@ -173,6 +174,17 @@ function stochasticUv(baseUv, point, cells, seed) {
 }
 
 function terrainVariation(point) {
+  if (QUALITY.simpleTerrainMaps) {
+    const patch = mx_noise_float(point.mul(vec3(0.021, 0.004, 0.019))).mul(0.5).add(0.5);
+    return {
+      patch,
+      blotch: patch,
+      grain: patch,
+      blend: float(0.45),
+      blur: float(0.2),
+      darken: mix(float(0.86), float(1.04), patch),
+    };
+  }
   const patch = noise01(point, 0.021, 1);
   const blotch = noise01(point, 0.062, 3);
   const grain = noise01(point, 0.21, 6);
@@ -189,6 +201,7 @@ function terrainVariation(point) {
 }
 
 function sampleVariedRgb(map, baseUv, point, variation, cells = 0.086) {
+  if (QUALITY.simpleTerrainMaps) return texture(map, baseUv).rgb;
   const uvA = stochasticUv(baseUv, point, cells, 1.0);
   const uvB = stochasticUv(baseUv, point.add(vec3(7.2, 0, -5.8)), cells * 0.83, 4.6);
   const uvC = stochasticUv(baseUv.mul(0.91), point.add(vec3(-4.1, 0, 9.3)), cells * 1.17, 8.2);
@@ -202,6 +215,9 @@ function sampleVariedRgb(map, baseUv, point, variation, cells = 0.086) {
 }
 
 function sampleVariedNormal(map, baseUv, point, variation, strength, cells = 0.086) {
+  if (QUALITY.simpleTerrainMaps) {
+    return normalMap(texture(map, baseUv).rgb, vec2(strength, strength));
+  }
   const uvA = stochasticUv(baseUv, point, cells, 1.0);
   const uvB = stochasticUv(baseUv, point.add(vec3(7.2, 0, -5.8)), cells * 0.83, 4.6);
   const uvC = stochasticUv(baseUv.mul(0.91), point.add(vec3(-4.1, 0, 9.3)), cells * 1.17, 8.2);

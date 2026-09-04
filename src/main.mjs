@@ -29,6 +29,7 @@ import { createDigBurstSystem } from "./dig-burst.mjs";
 import { BUCKET_CAPACITY, CASTLE_SAND_COST, createInventory, dumpableSandId, harvestItemId, hotbarIndexFromCode, isSandItemId } from "./inventory-system.mjs";
 import { createInventoryHud } from "./inventory-hud.mjs";
 import { isBrowserHost, reportProgress, yieldToBrowser } from "./async-load.mjs";
+import { QUALITY } from "./quality.mjs";
 
 export async function startDesertedIsland({ onProgress } = {}) {
   if (!onProgress) {
@@ -43,8 +44,8 @@ document.title = "Deserted Island — ThreeBrowser";
 await reportProgress(onProgress, "Starting renderer", 0.08);
 
 const RTX_INTERNAL_PIXELS = 5_300_000;
-const RASTER_INTERNAL_PIXELS = 2560 * 1440;
-const MAX_INTERNAL_RATIO = 2.25;
+const RASTER_INTERNAL_PIXELS = QUALITY.rasterPixels;
+const MAX_INTERNAL_RATIO = QUALITY.pixelRatioCap;
 
 function hasNativeRays() {
   const bridge = navigator.gpu?.threeBrowserRTX;
@@ -80,11 +81,14 @@ if (!WebGPU.isAvailable()) {
 }
 
 const renderer = new THREE.WebGPURenderer({
-  antialias: true,
+  antialias: QUALITY.antialias,
   powerPreference: "high-performance",
   trackTimestamp: false,
 });
-const displayPixelRatio = Math.max(1, Number(globalThis.devicePixelRatio || 1));
+const displayPixelRatio = Math.min(
+  QUALITY.pixelRatioCap,
+  Math.max(1, Number(globalThis.devicePixelRatio || 1)),
+);
 let internalRatio = chooseInternalRatio(innerWidth, innerHeight);
 renderer.setPixelRatio(displayPixelRatio);
 renderer.setSize(Math.max(1, innerWidth), Math.max(1, innerHeight));
@@ -93,7 +97,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.12;
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = QUALITY.pcfSoft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
 renderer.autoClear = false;
 renderer.domElement.style.touchAction = "none";
 document.body.appendChild(renderer.domElement);
@@ -110,6 +114,11 @@ renderer.backend.device?.addEventListener?.("uncapturederror", event => {
 const rtx = navigator.gpu?.threeBrowserRTX ?? null;
 reportBridge(rtx);
 console.log("[First-Person Beach] Click/dig · Right-click fill bucket, scoop piles, dump sand, or mold castle · WASD walk · Shift sprint · Space jump · E carry/drop · Tab inventory · 1-9 hotbar · X RTX");
+if (isBrowserHost()) {
+  console.log(
+    "[First-Person Beach] Browser quality: fewer cloud steps, cheaper terrain maps, lighter rain, and smaller shadows",
+  );
+}
 
 const scene = new THREE.Scene();
 scene.name = "First-person tropical beach";

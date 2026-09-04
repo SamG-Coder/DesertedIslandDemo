@@ -61,6 +61,7 @@ test("manifest registers a portable WebGPU deserted island", async () => {
     "src/sand-stamp.mjs",
     "src/water-flow.mjs",
     "src/water-seepage.mjs",
+    "src/quality.mjs",
     "src/terrain-sim.mjs",
     "src/locomotion.mjs",
     "src/collision-system.mjs",
@@ -171,6 +172,8 @@ test("main wires first-person controls and hybrid RTX lighting without HTML over
   assert.match(main, /hud\.afterPresent\(\)/);
   assert.doesNotMatch(main, /destroyTexture/);
   assert.match(main, /RASTER_INTERNAL_PIXELS/);
+  assert.match(main, /QUALITY\.rasterPixels/);
+  assert.match(main, /QUALITY\.antialias/);
   assert.match(main, /hasNativeRays/);
   assert.match(main, /shovel\.update\(dt\)/);
   assert.match(main, /footsteps\.update\(dt, view\)/);
@@ -314,7 +317,7 @@ test("volumetric clouds drive rain from the same world-space storm field", async
   assert.match(weather, /Loop\(CLOUD_VIEW_STEPS/);
   assert.match(weather, /const deckHeight = point\.y\.sub\(CLOUD_BASE\)/);
   assert.match(weather, /mx_noise_float\(coarseCoord\)/);
-  assert.match(weather, /new THREE\.SphereGeometry\(CLOUD_SHELL_RADIUS, 48, 24\)/);
+  assert.match(weather, /new THREE\.SphereGeometry\(CLOUD_SHELL_RADIUS, QUALITY\.cloudShellWidth, QUALITY\.cloudShellHeight\)/);
   assert.match(weather, /clouds\.position\.copy\(camera\.position\)/);
   assert.match(weather, /new THREE\.NodeMaterial/);
   assert.match(weather, /material\.colorNode = cloudRaymarch\(\)/);
@@ -342,6 +345,8 @@ test("rain impacts accumulate, run downhill, and react by surface type", async (
   assert.match(weather, /createSurfaceWaterSystem/);
   assert.match(weather, /kind: overWater \? "water" : "terrain"/);
   assert.match(weather, /findObjectImpact/);
+  assert.match(weather, /RAIN_GROUND_CHECK_Y/);
+  assert.match(weather, /const raining = localRain > 0\.025 \|\| storm > 0\.38/);
   assert.match(surfaceWater, /Rain accumulation and downhill runoff/);
   assert.match(surfaceWater, /lowestHead/);
   assert.match(surfaceWater, /transfer/);
@@ -358,7 +363,7 @@ test("beach water keeps its Gerstner mesh and advects persistent foam", async ()
     load("src/foam-field.mjs"),
     load("src/main.mjs"),
   ]);
-  assert.match(scene, /PlaneGeometry\(320, 280, 180, 140\)/);
+  assert.match(scene, /PlaneGeometry\(320, 280, QUALITY\.waterSegmentsX, QUALITY\.waterSegmentsZ\)/);
   assert.match(scene, /HEIGHT_BOUNDS/);
   assert.match(scene, /createBeachFoamField/);
   assert.match(scene, /breakingInjectionNode/);
@@ -370,6 +375,7 @@ test("beach water keeps its Gerstner mesh and advects persistent foam", async ()
   assert.match(materials, /createWaterMaterial\(heightMap, persistentFoamSample/);
   assert.match(materials, /import \{ cloudShadowNode \} from "\.\/weather\.mjs"/);
   assert.match(materials, /applyCloudShadow\(albedo, point, 0\.56\)/);
+  assert.match(materials, /QUALITY\.simpleTerrainMaps/);
   assert.match(materials, /applyCloudShadow\(mix\(waterColor, foamColor, foam\), point, 0\.34\)/);
   assert.match(materials, /transformDirection\(cameraViewMatrix\)/);
   assert.match(materials, /dot\(normalWorld, normalize\(toSun\.add\(viewDir\)\)\)/);

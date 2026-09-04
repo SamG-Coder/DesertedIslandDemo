@@ -423,6 +423,12 @@
       "bytes": 0
     },
     {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/quality.mjs",
+      "path": "src/quality.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
       "url": "https://deserted-island.runtime.threebrowser.local/src/rock-model.mjs",
       "path": "src/rock-model.mjs",
       "type": "module",
@@ -591,6 +597,12 @@
       "bytes": 0
     },
     {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/quality.test.mjs",
+      "path": "tests/quality.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
       "url": "https://deserted-island.runtime.threebrowser.local/tests/rock-model.test.mjs",
       "path": "tests/rock-model.test.mjs",
       "type": "module",
@@ -611,6 +623,12 @@
     {
       "url": "https://deserted-island.runtime.threebrowser.local/tests/sand-repose.test.mjs",
       "path": "tests/sand-repose.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/sand-stamp.test.mjs",
+      "path": "tests/sand-stamp.test.mjs",
       "type": "module",
       "bytes": 0
     },

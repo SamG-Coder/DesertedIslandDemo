@@ -29,7 +29,7 @@ function textureFromBitmap(bitmap, { srgb = false, wrap, THREE }) {
   textureMap.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
   textureMap.wrapS = wrap;
   textureMap.wrapT = wrap;
-  textureMap.anisotropy = 8;
+  textureMap.anisotropy = isBrowserHost() ? 4 : 8;
   textureMap.generateMipmaps = true;
   textureMap.minFilter = THREE.LinearMipmapLinearFilter;
   textureMap.magFilter = THREE.LinearFilter;
@@ -63,7 +63,7 @@ export async function loadTextureAsync(THREE, url, { srgb = false, wrap = THREE.
   textureMap.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
   textureMap.wrapS = wrap;
   textureMap.wrapT = wrap;
-  textureMap.anisotropy = 8;
+  textureMap.anisotropy = isBrowserHost() ? 4 : 8;
   textureMap.generateMipmaps = true;
   textureMap.minFilter = THREE.LinearMipmapLinearFilter;
   textureMap.magFilter = THREE.LinearFilter;
