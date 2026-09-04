@@ -20,7 +20,7 @@ test("shovel hits only open terrain or a rock, never sand under solids", () => {
 
 test("aim preview is sand-yellow when valid and red when blocked", () => {
   assert.equal(previewColor("dig", true), 0xf0d089);
-  assert.equal(previewColor("fill", true), 0xff4d5a);
+  assert.equal(previewColor("fill", true), 0x4ade80);
   assert.equal(previewColor("castle", true), 0xe8c48a);
   assert.equal(previewColor("dig", false), 0xe24b4b);
   assert.equal(previewColor("fill", false), 0xe24b4b);

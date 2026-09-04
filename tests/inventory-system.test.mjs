@@ -167,5 +167,5 @@ test("a placed bucket's fill survives pickup into the hotbar", () => {
   assert.equal(inventory.slots[0].itemId, "bucket");
   assert.equal(inventory.slots[0].fill, 3);
   assert.equal(inventory.slots[0].fillItemId, "dry-sand");
-  assert.equal(BUCKET_CAPACITY, 8);
+  assert.equal(BUCKET_CAPACITY, 3);
 });

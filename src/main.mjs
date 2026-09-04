@@ -18,10 +18,15 @@ import { terrainHeight } from "./terrain.mjs";
 import { createTerrainSim } from "./terrain-sim.mjs";
 import { createBeachWeather } from "./weather.mjs";
 import { canShovelHit, createBeachShovel } from "./shovel-system.mjs";
-import { CASTLE_FOOTPRINT_RADIUS, createBeachBucket } from "./bucket-system.mjs";
+import {
+  CASTLE_FOOTPRINT_RADIUS,
+  CASTLE_PLACEMENT_IGNORE,
+  createBeachBucket,
+  isCastleStackAim,
+} from "./bucket-system.mjs";
 import { classifyBeachSurface, classifyDigBurst } from "./footstep-logic.mjs";
 import { createDigBurstSystem } from "./dig-burst.mjs";
-import { CASTLE_SAND_COST, createInventory, dumpableSandId, harvestItemId, hotbarIndexFromCode, isSandItemId } from "./inventory-system.mjs";
+import { BUCKET_CAPACITY, CASTLE_SAND_COST, createInventory, dumpableSandId, harvestItemId, hotbarIndexFromCode, isSandItemId } from "./inventory-system.mjs";
 import { createInventoryHud } from "./inventory-hud.mjs";
 import { isBrowserHost, reportProgress, yieldToBrowser } from "./async-load.mjs";
 
@@ -104,7 +109,7 @@ renderer.backend.device?.addEventListener?.("uncapturederror", event => {
 
 const rtx = navigator.gpu?.threeBrowserRTX ?? null;
 reportBridge(rtx);
-console.log("[First-Person Beach] Click/dig · Right-click fill bucket, dump sand, or mold castle · WASD walk · Shift sprint · Space jump · E carry/drop · Tab inventory · 1-9 hotbar · X RTX");
+console.log("[First-Person Beach] Click/dig · Right-click fill bucket, scoop piles, dump sand, or mold castle · WASD walk · Shift sprint · Space jump · E carry/drop · Tab inventory · 1-9 hotbar · X RTX");
 
 const scene = new THREE.Scene();
 scene.name = "First-person tropical beach";
@@ -229,11 +234,18 @@ const shovel = await createBeachShovel(
   collisionWorld,
   collectFromDig,
 );
+function collapseCastleIntoMound(mound) {
+  footsteps.dump(mound);
+  mound.y = collisionWorld.terrainHeightAt(mound.x, mound.z);
+  digBurst.spawn(mound, mound.itemId || "dry-sand", { dump: true });
+}
+
 const bucket = await createBeachBucket({
   scene,
   camera,
   view,
   collisionWorld,
+  onCollapse: collapseCastleIntoMound,
 });
 
 function persistBucketFill() {
@@ -261,7 +273,45 @@ function fillPlacedBucket() {
     return false;
   }
   hud.markDirty();
-  console.log(`[First-Person Beach] Bucket ${bucket.fill}/8 ${inventory.catalog[sandId]?.name ?? sandId}`);
+  console.log(`[First-Person Beach] Bucket ${bucket.fill}/${BUCKET_CAPACITY} ${inventory.catalog[sandId]?.name ?? sandId}`);
+  return true;
+}
+
+function pileSandId(hit) {
+  const support = collisionWorld.surfaceAt(hit.x, hit.z);
+  const surface = classifyBeachSurface({
+    groundHeight: support.height,
+    waterLevel: WATER_LEVEL,
+    wetness: terrainSim.wetnessAt?.(hit.x, hit.z) ?? weather.surfaceWater?.wetnessAt?.(hit.x, hit.z) ?? 0,
+  });
+  return harvestItemId({ kind: "terrain", surface }) ?? "dry-sand";
+}
+
+function scoopPileIntoBucket() {
+  if (hud.open || !bucket.carried || !bucket.equipped) return false;
+  if (bucket.fill >= BUCKET_CAPACITY) return false;
+  camera.getWorldPosition(aimOrigin);
+  camera.getWorldDirection(aimDirection);
+  const hit = collisionWorld.raycastSurface(aimOrigin, aimDirection, TOOL_AIM_DISTANCE);
+  if (!hit || hit.kind !== "terrain") return false;
+  if (!terrainSim.isSandPile?.(hit.x, hit.z)) return false;
+  const sandId = pileSandId(hit);
+  if (bucket.tryScoop(sandId) < 1) return false;
+  const horizontal = Math.hypot(aimDirection.x, aimDirection.z) || 1;
+  const scoopHit = {
+    x: hit.x,
+    y: hit.y,
+    z: hit.z,
+    forwardX: aimDirection.x / horizontal,
+    forwardZ: aimDirection.z / horizontal,
+    kind: "terrain",
+  };
+  footsteps.scoop(scoopHit);
+  persistBucketFill();
+  scoopHit.y = collisionWorld.terrainHeightAt(scoopHit.x, scoopHit.z);
+  digBurst.spawn(scoopHit, sandId);
+  hud.markDirty();
+  console.log(`[First-Person Beach] Scooped ${inventory.catalog[sandId]?.name ?? sandId} · bucket ${bucket.fill}/${BUCKET_CAPACITY}`);
   return true;
 }
 
@@ -289,13 +339,30 @@ function currentAim() {
   const yaw = Math.atan2(aimDirection.x, aimDirection.z);
   const sandId = dumpableSandId(inventory);
   if (bucket.carried && bucket.equipped) {
-    const stampOk = hit.kind === "castle"
-      || (hit.kind === "terrain" && collisionWorld.canStampTerrain(hit.x, hit.z, CASTLE_FOOTPRINT_RADIUS));
+    if (bucket.fill < BUCKET_CAPACITY && hit.kind === "terrain" && terrainSim.isSandPile?.(hit.x, hit.z)) {
+      const sandId = pileSandId(hit);
+      const typeOk = !bucket.fillItemId || bucket.fillItemId === sandId;
+      return {
+        mode: "fill",
+        x: hit.x,
+        y: hit.y,
+        z: hit.z,
+        radiusX: SHOVEL_RADIUS_X,
+        radiusZ: SHOVEL_RADIUS_Z,
+        yaw,
+        valid: typeOk,
+      };
+    }
+    const stacked = isCastleStackAim(hit);
+    const beside = hit.kind === "terrain" || hit.kind === "castle";
+    const stampOk = stacked || (
+      beside && !collisionWorld.solidAt(hit.x, hit.z, CASTLE_FOOTPRINT_RADIUS, CASTLE_PLACEMENT_IGNORE)
+    );
     return {
       mode: "castle",
-      x: hit.kind === "castle" ? (hit.collider?.stackX ?? hit.x) : hit.x,
-      y: hit.kind === "castle" ? (hit.collider?.maxY ?? hit.y) : hit.y,
-      z: hit.kind === "castle" ? (hit.collider?.stackZ ?? hit.z) : hit.z,
+      x: stacked ? (hit.collider?.stackX ?? hit.x) : hit.x,
+      y: stacked ? (hit.collider?.maxY ?? hit.y) : (collisionWorld.terrainHeightAt(hit.x, hit.z) ?? hit.y),
+      z: stacked ? (hit.collider?.stackZ ?? hit.z) : hit.z,
       radiusX: CASTLE_FOOTPRINT_RADIUS,
       radiusZ: CASTLE_FOOTPRINT_RADIUS,
       yaw: 0,
@@ -314,7 +381,7 @@ function currentAim() {
       radiusX: 0.14,
       radiusZ: 0.14,
       yaw: 0,
-      valid: Boolean(fillId) && bucket.fill < 8 && typeOk,
+      valid: Boolean(fillId) && bucket.fill < BUCKET_CAPACITY && typeOk,
     };
   }
   if (shovel.carried && shovel.equipped) {
@@ -481,8 +548,9 @@ canvas.addEventListener("pointerdown", event => {
     return;
   }
   if (event.button === 2) {
-    if (bucket.carried && bucket.equipped) moldSandCastle();
-    else if (!fillPlacedBucket()) dumpOntoGround();
+    if (bucket.carried && bucket.equipped) {
+      if (!scoopPileIntoBucket()) moldSandCastle();
+    } else if (!fillPlacedBucket()) dumpOntoGround();
     return;
   }
   if (event.button !== 0) return;
@@ -587,6 +655,7 @@ renderer.setAnimationLoop(() => {
   jumpQueued = false;
   look.x = 0;
   look.y = 0;
+  bucket.crushUnderPlayer(view);
   clampToWorld(view);
   applyCamera();
   world.sky.position.copy(camera.position);

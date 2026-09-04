@@ -2,6 +2,7 @@ export const SCOOP_VOLUME_HEIGHT = 0.16; // matches current DIG_DEPTH
 export const SHOVEL_RADIUS_X = 0.2;
 export const SHOVEL_RADIUS_Z = 0.26;
 export const SHOVEL_STAMP_RADIUS = Math.max(SHOVEL_RADIUS_X, SHOVEL_RADIUS_Z);
+export const PILE_SAND_MIN = 0.04;
 
 function clamp01(value) {
   const number = Number(value);
@@ -39,6 +40,22 @@ export function stampDig(field, hit) {
     peaked: false,
     wetness: 0,
   });
+}
+
+export function stampScoop(field, hit) {
+  return field.stamp(hit.x, hit.z, {
+    amount: -SCOOP_VOLUME_HEIGHT,
+    radiusX: SHOVEL_RADIUS_X,
+    radiusZ: SHOVEL_RADIUS_Z,
+    forwardX: hit.forwardX,
+    forwardZ: hit.forwardZ,
+    peaked: true,
+    minSand: 0,
+  });
+}
+
+export function isSandPile(sandAt, x, z, minimum = PILE_SAND_MIN) {
+  return Number(sandAt?.(x, z)) > Number(minimum);
 }
 
 export function stampDump(field, hit, { wetness = 0 } = {}) {

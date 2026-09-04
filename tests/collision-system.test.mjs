@@ -40,6 +40,14 @@ test("palm trunks block and boxes support or slide a player capsule", () => {
   assert.equal(collision.canStampTerrain(-4, -18, 0.22), true);
   assert.equal(collision.solidAt(palm.position.x, palm.position.z, 0.05)?.kind, "palm");
   assert.equal(collision.canStampTerrain(palm.position.x, palm.position.z, 0.22), false);
+  collision.colliders.push({
+    kind: "castle",
+    shape: "box",
+    box: { min: { x: 7.92, y: 0, z: -18.08 }, max: { x: 8.08, y: 0.18, z: -17.92 } },
+  });
+  assert.equal(collision.solidAt(8, -18, 0.06)?.kind, "castle");
+  assert.equal(collision.solidAt(8, -18, 0.06, new Set(["castle"])), null);
+  assert.equal(collision.canStampTerrain(8, -18, 0.04, new Set(["castle"])), true);
 
   const terrainHit = collision.sweepPoint(
     new THREE.Vector3(-4, terrainHeight(-4, -18) + 0.8, -18),

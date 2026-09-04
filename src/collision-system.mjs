@@ -87,6 +87,7 @@ export function createBeachCollisionWorld(world) {
 
   function blockedAt(x, z, feetY) {
     for (const collider of colliders) {
+      if (collider.kind === "castle") continue;
       if (feetY > collider.maxY + STEP_CLEARANCE || feetY + 1.58 < collider.minY) continue;
       if (overlaps(collider, x, z, PLAYER_RADIUS)) return true;
     }
@@ -112,7 +113,7 @@ export function createBeachCollisionWorld(world) {
       // Palm trunks are walls, not walkable columns. Rock and driftwood tops
       // can support the player after a jump without snapping them upward from
       // ground level merely for approaching the object.
-      if (collider.kind === "palm" || collider.shape !== "box") continue;
+      if (collider.kind === "palm" || collider.kind === "castle" || collider.shape !== "box") continue;
       if (!containsTop(collider.box, x, z, 0.035)) continue;
       if (collider.maxY > height) {
         height = collider.maxY;
@@ -215,8 +216,9 @@ export function createBeachCollisionWorld(world) {
       }
       return null;
     },
-    canStampTerrain(x, z, radius = 0.22) {
+    canStampTerrain(x, z, radius = 0.22, ignoreKinds = null) {
       for (const collider of colliders) {
+        if (ignoreKinds?.has?.(collider.kind)) continue;
         if (overlaps(collider, x, z, radius)) return false;
       }
       return true;

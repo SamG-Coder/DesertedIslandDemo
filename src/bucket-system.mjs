@@ -2,10 +2,17 @@ import * as THREE from "three/webgpu";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { canInteractWithCarryable, createCarryableObject } from "./carryable-system.mjs";
 import { TOOL_AIM_DISTANCE } from "./collision-system.mjs";
+import { EYE_HEIGHT } from "./first-person.mjs";
 import { BUCKET_CAPACITY, CASTLE_SAND_COST, isSandItemId } from "./inventory-system.mjs";
 
 export const BUCKET_AIM_DISTANCE = TOOL_AIM_DISTANCE;
-export const CASTLE_FOOTPRINT_RADIUS = 0.08;
+export const CASTLE_FOOTPRINT_RADIUS = 0.06;
+export const CASTLE_PLACEMENT_IGNORE = Object.freeze(new Set(["castle"]));
+
+export function isCastleStackAim(hit) {
+  if (!hit || hit.kind !== "castle" || !hit.collider) return false;
+  return hit.y >= (Number(hit.collider.maxY) || hit.y) - 0.05;
+}
 
 const worldPosition = new THREE.Vector3();
 const bounds = new THREE.Box3();
@@ -19,6 +26,19 @@ const WET_SAND_COLOR = 0x9b734c;
 
 function clampFill(value) {
   return Math.max(0, Math.min(BUCKET_CAPACITY, Math.trunc(Number(value) || 0)));
+}
+
+export function castleShouldCollapse(player, collider, eyeHeight = EYE_HEIGHT) {
+  if (!player || !collider?.box) return false;
+  const box = collider.box;
+  const pad = 0.08;
+  if (player.x < box.min.x - pad || player.x > box.max.x + pad) return false;
+  if (player.z < box.min.z - pad || player.z > box.max.z + pad) return false;
+  if (!player.grounded && player.verticalVelocity > 0.45) return false;
+  const feetY = (Number(player.y) || 0) - eyeHeight;
+  if (feetY > collider.maxY + 0.22) return false;
+  if (feetY < collider.minY - 0.14) return false;
+  return true;
 }
 
 function prepareStudioObject(root, name) {
@@ -69,6 +89,7 @@ export async function createBeachBucket({
   view,
   collisionWorld,
   spawn = { x: -0.85, z: -16.15, yaw: 0.35 },
+  onCollapse = null,
 } = {}) {
   const bucketUrl = new URL("../assets/models/red-sand-castle-bucket.glb", import.meta.url).href;
   const castleUrl = new URL("../assets/models/stackable-sand-castle.glb", import.meta.url).href;
@@ -157,9 +178,61 @@ export async function createBeachBucket({
       stackZ: z,
     };
     collisionWorld.colliders.push(collider);
-    const record = { object: castle, collider };
+    const record = {
+      object: castle,
+      collider,
+      itemId: state.fillItemId,
+      x,
+      z,
+    };
     castles.push(record);
     return record;
+  }
+
+  function disposeCastle(record) {
+    const index = collisionWorld.colliders.indexOf(record.collider);
+    if (index >= 0) collisionWorld.colliders.splice(index, 1);
+    record.object.removeFromParent();
+    record.object.traverse(child => {
+      child.geometry?.dispose?.();
+      if (Array.isArray(child.material)) child.material.forEach(material => material.dispose?.());
+      else child.material?.dispose?.();
+    });
+  }
+
+  function collapseRecord(record) {
+    const mound = {
+      x: record.x,
+      y: record.collider.minY,
+      z: record.z,
+      forwardX: 0,
+      forwardZ: 1,
+      kind: "terrain",
+      itemId: record.itemId || "dry-sand",
+    };
+    disposeCastle(record);
+    onCollapse?.(mound);
+    return mound;
+  }
+
+  function crushUnderPlayer(player) {
+    const fallen = [];
+    const columns = new Set();
+    for (const record of castles) {
+      if (!castleShouldCollapse(player, record.collider)) continue;
+      columns.add(`${record.x.toFixed(3)},${record.z.toFixed(3)}`);
+    }
+    if (columns.size === 0) return fallen;
+    for (let index = castles.length - 1; index >= 0; index -= 1) {
+      const record = castles[index];
+      if (!columns.has(`${record.x.toFixed(3)},${record.z.toFixed(3)}`)) continue;
+      castles.splice(index, 1);
+      fallen.push(collapseRecord(record));
+    }
+    if (fallen.length > 0) {
+      console.log(`[First-Person Beach] Sand castle collapsed into a mound`);
+    }
+    return fallen;
   }
 
   syncFillVisual();
@@ -184,6 +257,14 @@ export async function createBeachBucket({
     },
     setFill,
     lookingAtPlacedBucket,
+    tryScoop(itemId) {
+      if (!carryable.carried || !equipped) return 0;
+      if (!isSandItemId(itemId)) return 0;
+      if (state.fill >= BUCKET_CAPACITY) return 0;
+      if (state.fillItemId && state.fillItemId !== itemId) return 0;
+      setFill(state.fill + 1, itemId);
+      return 1;
+    },
     tryFill(itemId, hit = null) {
       if (carryable.carried || !lookingAtPlacedBucket()) return 0;
       if (!hit || hit.kind !== "bucket") return 0;
@@ -193,12 +274,22 @@ export async function createBeachBucket({
       setFill(state.fill + 1, itemId);
       return 1;
     },
+    crushUnderPlayer,
     tryMold(hit) {
       if (!carryable.carried || !equipped) return false;
       if (state.fill < CASTLE_SAND_COST || !state.fillItemId) return false;
       if (!hit || (hit.kind !== "terrain" && hit.kind !== "castle")) return false;
-      if (hit.kind === "terrain" && collisionWorld.solidAt?.(hit.x, hit.z, CASTLE_FOOTPRINT_RADIUS)) return false;
-      placeCastleAt(hit);
+      const stacked = isCastleStackAim(hit);
+      const placed = stacked ? hit : {
+        kind: "terrain",
+        x: hit.x,
+        y: collisionWorld.terrainHeightAt?.(hit.x, hit.z) ?? hit.y,
+        z: hit.z,
+      };
+      if (!stacked && collisionWorld.solidAt?.(placed.x, placed.z, CASTLE_FOOTPRINT_RADIUS, CASTLE_PLACEMENT_IGNORE)) {
+        return false;
+      }
+      placeCastleAt(placed);
       setFill(0, null);
       return true;
     },
@@ -212,16 +303,7 @@ export async function createBeachBucket({
       anchor.visible = !carryable.carried || equipped;
     },
     dispose() {
-      for (const record of castles) {
-        const index = collisionWorld.colliders.indexOf(record.collider);
-        if (index >= 0) collisionWorld.colliders.splice(index, 1);
-        record.object.removeFromParent();
-        record.object.traverse(child => {
-          child.geometry?.dispose?.();
-          if (Array.isArray(child.material)) child.material.forEach(material => material.dispose?.());
-          else child.material?.dispose?.();
-        });
-      }
+      for (const record of castles) disposeCastle(record);
       fillMesh.geometry.dispose();
       fillMesh.material.dispose();
       carryable.dispose();

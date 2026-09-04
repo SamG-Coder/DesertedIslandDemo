@@ -1,7 +1,7 @@
 import * as THREE from "three/webgpu";
 
 const VALID = 0xf0d089;
-const FILL = 0xff4d5a;
+const FILL = 0x4ade80;
 const CASTLE = 0xe8c48a;
 const BLOCKED = 0xe24b4b;
 

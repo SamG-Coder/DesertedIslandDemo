@@ -152,7 +152,7 @@ export function createSandField(options = {}) {
     return ab + (cd - ab) * tz;
   }
 
-  function addAtCell(ix, iz, amount, wetness) {
+  function addAtCell(ix, iz, amount, wetness, limits = {}) {
     ix = Math.floor(ix);
     iz = Math.floor(iz);
     const center = cellCenter(ix, iz);
@@ -167,7 +167,10 @@ export function createSandField(options = {}) {
     const chunk = ensureChunk(cx, cz);
     const index = localIndex(ix, iz, cx, cz);
     if (writeSand) {
-      chunk.sand[index] = clamp(chunk.sand[index] + sandAdd, SAND_MIN, SAND_MAX);
+      let next = chunk.sand[index] + sandAdd;
+      if (Number.isFinite(limits.minSand)) next = Math.max(limits.minSand, next);
+      if (Number.isFinite(limits.maxSand)) next = Math.min(limits.maxSand, next);
+      chunk.sand[index] = clamp(next, SAND_MIN, SAND_MAX);
     }
     if (writeWet) {
       chunk.wet[index] = clamp01(chunk.wet[index] + wetAdd);
@@ -201,6 +204,11 @@ export function createSandField(options = {}) {
     const maxIx = Math.floor((x + extentX) / CELL_SIZE);
     const minIz = Math.floor((z - extentZ) / CELL_SIZE);
     const maxIz = Math.floor((z + extentZ) / CELL_SIZE);
+    const minSand = Number(options.minSand);
+    const maxSand = Number(options.maxSand);
+    const limits = {};
+    if (Number.isFinite(minSand)) limits.minSand = minSand;
+    if (Number.isFinite(maxSand)) limits.maxSand = maxSand;
     for (let iz = minIz; iz <= maxIz; iz += 1) {
       for (let ix = minIx; ix <= maxIx; ix += 1) {
         const center = cellCenter(ix, iz);
@@ -210,7 +218,7 @@ export function createSandField(options = {}) {
         const localZ = dx * forwardX + dz * forwardZ;
         const weight = shovelKernelWeight(localX, localZ, radiusX, radiusZ, peaked);
         if (weight <= 0) continue;
-        addAtCell(ix, iz, amount * weight, hasWet ? wetness * weight : undefined);
+        addAtCell(ix, iz, amount * weight, hasWet ? wetness * weight : undefined, limits);
       }
     }
   }

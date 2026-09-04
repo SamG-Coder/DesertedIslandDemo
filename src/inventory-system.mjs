@@ -3,8 +3,8 @@ export const HOTBAR_SIZE = 9;
 export const STORAGE_COLUMNS = 9;
 export const STORAGE_ROWS = 3;
 
-export const BUCKET_CAPACITY = 8;
-export const CASTLE_SAND_COST = 8;
+export const BUCKET_CAPACITY = 3;
+export const CASTLE_SAND_COST = 3;
 
 export const BEACH_ITEMS = Object.freeze({
   shovel: Object.freeze({

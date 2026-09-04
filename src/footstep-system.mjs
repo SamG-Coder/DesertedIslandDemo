@@ -584,12 +584,13 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
     return true;
   }
 
-  function applySandEdit(hit, amount, label) {
+  function applySandEdit(hit, amount, label, { scoop = false } = {}) {
     const x = Number(hit.x);
     const z = Number(hit.z);
     if (!Number.isFinite(x) || !Number.isFinite(z)) return false;
     if (terrainSim) {
       if (amount > 0) terrainSim.stampDump(hit);
+      else if (scoop) terrainSim.stampScoop(hit);
       else terrainSim.stampDig(hit);
     }
     let record = digs.records.find(candidate => candidate.active
@@ -640,6 +641,10 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
 
   function dumpSand(hit) {
     return applySandEdit(hit, DIG_DEPTH, "Dumped shovel-sized sand pile");
+  }
+
+  function scoopSand(hit) {
+    return applySandEdit(hit, -DIG_DEPTH, "Scooped sand from a pile", { scoop: true });
   }
 
   function digPoolCursor() {
@@ -780,6 +785,7 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
     arm: audio.arm,
     dig: digSand,
     dump: dumpSand,
+    scoop: scoopSand,
     update(dt, view) {
       if (terrainSim) {
         const moved = terrainSim.update(dt) || 0;

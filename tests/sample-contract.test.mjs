@@ -137,7 +137,14 @@ test("main wires first-person controls and hybrid RTX lighting without HTML over
   assert.match(main, /createBeachBucket/);
   assert.match(main, /fillPlacedBucket/);
   assert.match(main, /moldSandCastle/);
+  assert.match(main, /scoopPileIntoBucket/);
+  assert.match(main, /footsteps\.scoop/);
+  assert.match(main, /isSandPile/);
   assert.match(main, /interactCarryables/);
+  assert.match(main, /crushUnderPlayer/);
+  assert.match(main, /isCastleStackAim/);
+  assert.match(main, /CASTLE_PLACEMENT_IGNORE/);
+  assert.match(main, /BUCKET_CAPACITY/);
   assert.match(main, /shovel.carried && shovel.equipped/);
   assert.match(main, /bucket.carried && bucket.equipped/);
   assert.match(main, /createAimPreview/);

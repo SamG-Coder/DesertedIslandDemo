@@ -40,6 +40,21 @@ test("stampDump raises heightAt", () => {
   assert.ok(sim.heightAt(-1, 3) > before);
 });
 
+test("a bucket scoop takes from a pile without digging a hole", () => {
+  const sim = createSim();
+  assert.equal(sim.isSandPile(2, -4), false);
+  sim.stampDump(2, -4);
+  assert.equal(sim.isSandPile(2, -4), true);
+  const piled = sim.heightAt(2, -4);
+  const base = 1;
+  sim.stampScoop(2, -4);
+  assert.ok(sim.heightAt(2, -4) < piled);
+  assert.ok(sim.heightAt(2, -4) >= base - 1e-6);
+  for (let i = 0; i < 8; i += 1) sim.stampScoop(2, -4);
+  assert.ok(sim.heightAt(2, -4) >= base - 1e-6);
+  assert.equal(sim.isSandPile(2, -4), false);
+});
+
 test("updating a dump pile does not throw and keeps a finite height", () => {
   const sim = createSim();
   sim.stampDump(0, 0);

@@ -10,6 +10,7 @@ import {
   createInventory,
   isSandItemId,
 } from "../src/inventory-system.mjs";
+import { CASTLE_PLACEMENT_IGNORE, castleShouldCollapse, isCastleStackAim } from "../src/bucket-system.mjs";
 
 const sampleRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 
@@ -52,13 +53,13 @@ test("bucket fill is remembered on the inventory slot", () => {
   assert.equal(inventory.add("bucket", 1, { preferSelected: true }), 0);
   const index = inventory.findItem("bucket");
   assert.ok(index >= 0);
-  assert.equal(inventory.setToolData(index, { fill: 5, fillItemId: "wet-sand" }), true);
+  assert.equal(inventory.setToolData(index, { fill: 2, fillItemId: "wet-sand" }), true);
   const slot = cloneSlot(inventory.slot(index));
   assert.equal(slot.itemId, "bucket");
-  assert.equal(slot.fill, 5);
+  assert.equal(slot.fill, 2);
   assert.equal(slot.fillItemId, "wet-sand");
-  assert.equal(BUCKET_CAPACITY, 8);
-  assert.equal(CASTLE_SAND_COST, 8);
+  assert.equal(BUCKET_CAPACITY, 3);
+  assert.equal(CASTLE_SAND_COST, 3);
   assert.equal(isSandItemId("dry-sand"), true);
   assert.equal(isSandItemId("bucket"), false);
 });
@@ -71,6 +72,7 @@ test("bucket gameplay lives in code, not a sand mesh inside the pail", async () 
   assert.match(bucket, /createBeachBucket/);
   assert.match(bucket, /CylinderGeometry/);
   assert.match(bucket, /tryFill/);
+  assert.match(bucket, /tryScoop/);
   assert.match(bucket, /tryMold/);
   assert.match(bucket, /kind === "castle"/);
   assert.match(bucket, /stackable-sand-castle\.glb/);
@@ -86,4 +88,29 @@ test("bucket gameplay lives in code, not a sand mesh inside the pail", async () 
   assert.match(main, /if \(shovel.carried && shovel.equipped\)/);
   assert.match(main, /if \(bucket.carried && bucket.equipped\)/);
   assert.doesNotMatch(main, /if \(shovel.carried\) \{\s*if \(shovel.interact\(\)\)/);
+  assert.match(main, /crushUnderPlayer/);
+  assert.match(main, /collapseCastleIntoMound/);
+  assert.match(main, /scoopPileIntoBucket/);
+  assert.match(main, /if \(!scoopPileIntoBucket\(\)\) moldSandCastle/);
+});
+
+test("walking or landing on a castle footprint collapses it", () => {
+  const collider = {
+    box: { min: { x: -0.08, y: 0.2, z: -0.08 }, max: { x: 0.08, y: 0.37, z: 0.08 } },
+    minY: 0.2,
+    maxY: 0.37,
+  };
+  assert.equal(castleShouldCollapse({ x: 0, y: 1.84, z: 0, grounded: true, verticalVelocity: 0 }, collider), true);
+  assert.equal(castleShouldCollapse({ x: 0, y: 2.1, z: 0, grounded: false, verticalVelocity: -2 }, collider), true);
+  assert.equal(castleShouldCollapse({ x: 0, y: 3.2, z: 0, grounded: false, verticalVelocity: -1 }, collider), false);
+  assert.equal(castleShouldCollapse({ x: 0, y: 2.0, z: 0, grounded: false, verticalVelocity: 3 }, collider), false);
+  assert.equal(castleShouldCollapse({ x: 2, y: 1.84, z: 2, grounded: true, verticalVelocity: 0 }, collider), false);
+});
+
+test("castles stack only on the crown and can sit beside each other", () => {
+  const collider = { maxY: 0.37 };
+  assert.equal(isCastleStackAim({ kind: "castle", y: 0.36, collider }), true);
+  assert.equal(isCastleStackAim({ kind: "castle", y: 0.22, collider }), false);
+  assert.equal(isCastleStackAim({ kind: "terrain", y: 0.36, collider }), false);
+  assert.ok(CASTLE_PLACEMENT_IGNORE.has("castle"));
 });

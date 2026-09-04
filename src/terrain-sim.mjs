@@ -1,6 +1,6 @@
 import { createSandField } from "./sand-chunk-field.mjs";
 import { relaxSandRepose } from "./sand-repose.mjs";
-import { stampDig as stampSandDig, stampDump as stampSandDump } from "./sand-stamp.mjs";
+import { isSandPile as pileFromSand, stampDig as stampSandDig, stampDump as stampSandDump, stampScoop as stampSandScoop } from "./sand-stamp.mjs";
 import { createWaterField } from "./water-flow.mjs";
 import { stepSeepage } from "./water-seepage.mjs";
 import {
@@ -54,6 +54,15 @@ export function createTerrainSim({
     return stampSandDig(sandField, asHit(xOrHit, z));
   }
 
+  function stampScoop(xOrHit, z) {
+    return stampSandScoop(sandField, asHit(xOrHit, z));
+  }
+
+  function isSandPile(xOrHit, z) {
+    const hit = asHit(xOrHit, z);
+    return pileFromSand(sandField.sandAt, hit.x, hit.z);
+  }
+
   function stampDump(xOrHit, zOrOptions, maybeOptions) {
     if (xOrHit != null && typeof xOrHit === "object") {
       return stampSandDump(sandField, xOrHit, zOrOptions ?? {});
@@ -86,6 +95,11 @@ export function createTerrainSim({
     wetnessAt,
     stampDig,
     stampDump,
+    stampScoop,
+    isSandPile,
+    sandAt(x, z) {
+      return finiteNumber(sandField.sandAt(x, z));
+    },
     update,
     dirtyRecords() {
       return sandField.dirtyRecords?.() ?? [];
