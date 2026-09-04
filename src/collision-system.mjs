@@ -43,6 +43,12 @@ function containsTop(box, x, z, margin = 0) {
     && z >= box.min.z + margin && z <= box.max.z - margin;
 }
 
+function dressingColliderKind(name) {
+  if (name.includes("table") || name.includes("desk") || name.includes("driftwood")) return "wood";
+  if (name.includes("rock")) return "rock";
+  return null;
+}
+
 export function createBeachCollisionWorld(world) {
   const colliders = [];
   const terrainDepressions = [];
@@ -67,10 +73,11 @@ export function createBeachCollisionWorld(world) {
 
   for (const object of world.dressing?.children ?? []) {
     const name = String(object.name || "").toLowerCase();
-    if (!name.includes("rock") && !name.includes("driftwood")) continue;
+    const kind = dressingColliderKind(name);
+    if (!kind) continue;
     const box = new THREE.Box3().setFromObject(object);
     if (!box.isEmpty()) colliders.push({
-      kind: name.includes("driftwood") ? "wood" : "rock",
+      kind,
       shape: "box",
       box,
       minY: box.min.y,

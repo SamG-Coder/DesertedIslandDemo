@@ -109,3 +109,26 @@ test("palm trunks block and boxes support or slide a player capsule", () => {
   assert.equal(rockHit.kind, "rock");
   assert.ok(rockHit.alpha > 0 && rockHit.alpha < 1);
 });
+
+test("named dining tables collide as wood desks", () => {
+  const dressing = new THREE.Group();
+  const tableX = 7.6;
+  const tableZ = -11.2;
+  const table = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.75, 0.9));
+  table.name = "Oak dining table";
+  table.position.set(tableX, terrainHeight(tableX, tableZ) + 0.375, tableZ);
+  dressing.add(table);
+  dressing.updateWorldMatrix(true, true);
+
+  const collision = createBeachCollisionWorld({ dressing, palms: [] });
+  const support = collision.surfaceAt(tableX, tableZ);
+  assert.equal(support.kind, "wood");
+  assert.ok(support.height > terrainHeight(tableX, tableZ) + 0.5);
+  assert.equal(collision.solidAt(tableX, tableZ, 0.05)?.kind, "wood");
+  assert.equal(collision.canStampTerrain(tableX, tableZ, 0.22), false);
+  const blocked = collision.resolveMovement(
+    tableX - 1.6, tableZ, tableX, tableZ,
+    terrainHeight(tableX - 1.6, tableZ),
+  );
+  assert.equal(blocked.x, tableX - 1.6, "table blocks the colliding axis");
+});

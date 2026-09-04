@@ -74,11 +74,13 @@ test("manifest registers a portable WebGPU deserted island", async () => {
     "src/sky-cycle.mjs",
     "src/tile-relief.mjs",
     "src/native-rtx-renderer.mjs",
+    "src/table-model.mjs",
     "assets/models/realistic-beach-palm.glb",
     "assets/models/coastal-rock-set.glb",
     "assets/models/detailed-beach-shovel.glb",
     "assets/models/red-sand-castle-bucket.glb",
     "assets/models/stackable-sand-castle.glb",
+    "assets/models/oak-dining-table.glb",
     "assets/audio/footstep-dry-sand-1.wav",
     "assets/audio/footstep-wet-sand-1.wav",
     "assets/audio/footstep-shallow-water-1.wav",
@@ -410,6 +412,24 @@ test("Studio-authored palms load as reusable GLB instances", async () => {
   assert.match(palm, /mergedPartCount/);
   assert.match(materials, /uv\(\)\.mul\(vec2\(uvScale\[0\], uvScale\[1\]\)\)/);
   assert.match(html, /"three\/webgpu": "\.\/node_modules\/three\/build\/three\.webgpu\.js"/);
+});
+
+test("Studio oak dining table sits on the beach as a judge desk", async () => {
+  const [scene, table, collision] = await Promise.all([
+    load("src/scene.mjs"),
+    load("src/table-model.mjs"),
+    load("src/collision-system.mjs"),
+  ]);
+  assert.match(scene, /loadJudgeDesk/);
+  assert.match(scene, /placeJudgeDesk/);
+  assert.match(table, /oak-dining-table\.glb/);
+  assert.match(table, /JUDGE_DESK/);
+  assert.match(table, /x: 7\.6/);
+  assert.match(table, /z: -11\.2/);
+  assert.match(table, /Oak dining table/);
+  assert.doesNotMatch(table, /rtxIgnore/);
+  assert.match(collision, /table/);
+  assert.match(collision, /desk/);
 });
 
 test("Studio-authored rock variants replace procedural ball geometry", async () => {

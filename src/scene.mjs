@@ -16,6 +16,7 @@ import {
 import { createMoonGlobe, createStarField } from "./sky-cycle.mjs";
 import { prepareStudioPalm } from "./palm-model.mjs";
 import { prepareStudioRockSet } from "./rock-model.mjs";
+import { loadJudgeDesk, placeJudgeDesk } from "./table-model.mjs";
 import {
   HEIGHT_BOUNDS,
   WATER_LEVEL,
@@ -249,9 +250,10 @@ export async function buildBeachScene(scene, maps, renderer) {
   scene.add(dressing);
 
   const random = mulberry32(0xbec4a11);
-  const [palmTemplate, rockTemplates] = await Promise.all([
+  const [palmTemplate, rockTemplates, judgeDesk] = await Promise.all([
     loadPalmTemplate(maps),
     loadRockTemplates(maps),
+    loadJudgeDesk(),
   ]);
   const palms = [];
   const palmSites = [
@@ -287,6 +289,7 @@ export async function buildBeachScene(scene, maps, renderer) {
   for (let i = 0; i < 6; i += 1) {
     addDriftwood(dressing, maps, -20 + random() * 40, -4 + random() * 10, 1.6 + random() * 1.8, random() * Math.PI);
   }
+  placeJudgeDesk(dressing, judgeDesk);
 
   return {
     sky,

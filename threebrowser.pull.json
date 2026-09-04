@@ -105,6 +105,12 @@
       "bytes": 0
     },
     {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/models/oak-dining-table.glb",
+      "path": "assets/models/oak-dining-table.glb",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
       "url": "https://deserted-island.runtime.threebrowser.local/assets/models/realistic-beach-palm.glb",
       "path": "assets/models/realistic-beach-palm.glb",
       "type": "asset",
@@ -483,6 +489,12 @@
       "bytes": 0
     },
     {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/table-model.mjs",
+      "path": "src/table-model.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
       "url": "https://deserted-island.runtime.threebrowser.local/src/terrain-sim.mjs",
       "path": "src/terrain-sim.mjs",
       "type": "module",
@@ -641,6 +653,12 @@
     {
       "url": "https://deserted-island.runtime.threebrowser.local/tests/sky-cycle.test.mjs",
       "path": "tests/sky-cycle.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/table-model.test.mjs",
+      "path": "tests/table-model.test.mjs",
       "type": "module",
       "bytes": 0
     },
