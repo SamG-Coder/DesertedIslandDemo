@@ -108,7 +108,7 @@ function cloudDensityNode(point) {
   // True 3D coherent noise replaces the stacked sine sheets used by the old
   // finite box. A coarse body plus a higher-frequency erosion octave produces
   // kilometre-scale banks with soft, irregular cauliflower edges.
-  const coarseCoord = advected.mul(vec3(0.00105, 0.0021, 0.00105));
+  const coarseCoord = advected.mul(vec3(0.0024, 0.0042, 0.0024));
   const coarse = mx_noise_float(coarseCoord).mul(0.5).add(0.5);
   const erosion = mx_noise_float(
     coarseCoord.mul(3.17).add(vec3(7.3, -2.1, 11.7)),
@@ -202,7 +202,9 @@ function createCloudVolume() {
         Break();
       });
     });
-    return finalColor;
+    // NodeMaterial applies premultiplication; supply straight colour here to
+    // avoid multiplying soft cloud edges by opacity twice.
+    return vec4(finalColor.rgb.div(finalColor.a.max(0.0001)), finalColor.a);
   });
 
   // The ray march returns pre-multiplied RGB and accumulated alpha as one
@@ -211,6 +213,7 @@ function createCloudVolume() {
   material.colorNode = cloudRaymarch();
   material.side = THREE.BackSide;
   material.transparent = true;
+  material.premultipliedAlpha = true;
   material.depthWrite = false;
   // The box's back faces are behind normal scene geometry. Depth testing them
   // keeps the accumulated cloud colour behind palms, rocks and terrain while

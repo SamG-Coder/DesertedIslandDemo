@@ -172,6 +172,7 @@ export function createSandField(options = {}) {
       if (Number.isFinite(limits.minSand)) next = Math.max(limits.minSand, next);
       if (Number.isFinite(limits.maxSand)) next = Math.min(limits.maxSand, next);
       chunk.sand[index] = clamp(next, SAND_MIN, SAND_MAX);
+      options.onHeightChange?.(ix, iz);
     }
     if (writeWet) {
       chunk.wet[index] = clamp01(chunk.wet[index] + wetAdd);
@@ -343,6 +344,7 @@ export function createSandField(options = {}) {
     waterAt,
     addWet,
     addAtCell,
+    notifyHeightChange(ix, iz) { options.onHeightChange?.(ix, iz); },
     stamp,
     forEachChunk,
     forEachDirtyChunk,

@@ -417,6 +417,12 @@
       "bytes": 0
     },
     {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/bucket-water.mjs",
+      "path": "src/bucket-water.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
       "url": "https://deserted-island.runtime.threebrowser.local/src/building-kit.mjs",
       "path": "src/building-kit.mjs",
       "type": "module",
@@ -701,6 +707,12 @@
     {
       "url": "https://deserted-island.runtime.threebrowser.local/tests/collision-system.test.mjs",
       "path": "tests/collision-system.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/connected-water.test.mjs",
+      "path": "tests/connected-water.test.mjs",
       "type": "module",
       "bytes": 0
     },

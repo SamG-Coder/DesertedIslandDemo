@@ -127,7 +127,7 @@ test("main wires first-person controls and hybrid RTX lighting without HTML over
   assert.match(main, /createBeachFootstepSystem/);
   assert.match(main, /createBeachCollisionWorld/);
   assert.match(main, /createBeachShovel/);
-  assert.match(main, /createBeachAxe/);
+  assert.doesNotMatch(main, /createBeachAxe/);
   assert.match(main, /event\.code === "KeyE"/);
   assert.match(main, /event\.code === "Tab"/);
   assert.match(main, /hotbarIndexFromCode/);
@@ -438,15 +438,15 @@ test("Studio oak dining table sits on the beach as a judge desk", async () => {
   assert.match(collision, /desk/);
 });
 
-test("Studio felling axe is a carryable palm-chopping tool", async () => {
+test("axe and tree cutting are absent from the active game", async () => {
   const [main, axe] = await Promise.all([
     load("src/main.mjs"),
     load("src/axe-system.mjs"),
   ]);
-  assert.match(main, /createBeachAxe/);
-  assert.match(main, /axe\.chop/);
-  assert.match(main, /createPalmDebrisSystem/);
-  assert.match(main, /palmDebris\.fell/);
+  assert.doesNotMatch(main, /createBeachAxe/);
+  assert.doesNotMatch(main, /axe\.chop/);
+  assert.doesNotMatch(main, /createPalmDebrisSystem/);
+  assert.doesNotMatch(main, /palmDebris\.fell/);
   assert.doesNotMatch(main, /if \(result\.felled\) configureNative/);
   assert.match(axe, /beach-felling-axe\.glb/);
   assert.match(axe, /canAxeHit/);

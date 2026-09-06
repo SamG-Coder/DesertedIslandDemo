@@ -76,7 +76,7 @@ async function loadStudioProp(url, name) {
 
 function createFillMesh() {
   const mesh = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.14, 0.10, 1, 24),
+    new THREE.CylinderGeometry(0.14, 0.096, 1, 40),
     new THREE.MeshStandardMaterial({
       color: DRY_SAND_COLOR,
       roughness: 0.94,
@@ -150,7 +150,8 @@ export async function createBeachBucket({
   const castleMaterials = ['dry-sand', 'wet-sand'].map(name => maps
     ? createMappedMaterial(maps['dry-sand'], { objectUv: true, uvScale: [1, 1],
       tint: name === 'wet-sand' ? [0.72, 0.67, 0.60] : [1, 1, 1],
-      roughness: name === 'wet-sand' ? 0.72 : 0.93, normalScale: 0.18, reflectionMask: 0.04 })
+      roughness: name === 'wet-sand' ? 0.82 : 0.96, normalScale: 0.85,
+      roughnessFromHeight: true, roughnessHigh: 1, sandGrain: true, reflectionMask: 0.02 })
     : new THREE.MeshStandardMaterial({ color: name === 'wet-sand' ? WET_SAND_COLOR : DRY_SAND_COLOR, roughness: 0.9 }));
 
   const fillMesh = createFillMesh();
@@ -167,15 +168,18 @@ export async function createBeachBucket({
   function syncFillVisual() {
     const amount = state.fill / BUCKET_CAPACITY;
     fillMesh.visible = amount > 0.02;
-    const height = 0.02 + amount * 0.22;
-    fillMesh.scale.set(1, height, 1);
+    const height = amount * 0.23;
+    const radiusScale = 0.7 + amount * 0.3;
+    fillMesh.scale.set(radiusScale, height, radiusScale);
     fillMesh.position.set(0, 0.012 + height * 0.5, 0);
-    fillMesh.material.color.setHex(state.fillItemId === "wet-sand" ? WET_SAND_COLOR : DRY_SAND_COLOR);
+    const water = state.fillItemId === 'water';
+    fillMesh.material.color.setHex(water ? 0x39787b : state.fillItemId === "wet-sand" ? WET_SAND_COLOR : DRY_SAND_COLOR);
+    fillMesh.material.roughness = water ? .12 : .94;
   }
 
   function setFill(fill, fillItemId = null) {
     state.fill = clampFill(fill);
-    state.fillItemId = state.fill > 0 && isSandItemId(fillItemId) ? fillItemId : (state.fill > 0 ? state.fillItemId : null);
+    state.fillItemId = state.fill > 0 && (isSandItemId(fillItemId) || fillItemId === 'water') ? fillItemId : (state.fill > 0 ? state.fillItemId : null);
     if (state.fill <= 0) state.fillItemId = null;
     syncFillVisual();
     return state.fill;
@@ -341,7 +345,7 @@ export async function createBeachBucket({
       const extra = Math.max(0, buildSandCost(BUILD_SCALES[sizeIndex]) - state.fill);
       return { mode: 'castle', x, y, z, yaw: rotation, geometry, scale: BUILD_SCALES[sizeIndex],
         radiusX: size.x / 2, radiusZ: size.z / 2,
-        valid: Boolean(state.fillItemId) && state.fill >= CASTLE_SAND_COST
+        valid: isSandItemId(state.fillItemId) && state.fill >= CASTLE_SAND_COST
           && extraSandAvailable(state.fillItemId) >= extra
           && (stacked || !collisionWorld.solidAt?.(x, z, Math.max(size.x, size.z) * 0.5, CASTLE_PLACEMENT_IGNORE)) };
     },
@@ -368,7 +372,7 @@ export async function createBeachBucket({
     lookingAtPlacedBucket,
     tryScoop(itemId) {
       if (!carryable.carried || !equipped) return 0;
-      if (!isSandItemId(itemId)) return 0;
+      if (!isSandItemId(itemId) && itemId !== 'water') return 0;
       if (state.fill >= BUCKET_CAPACITY) return 0;
       if (state.fillItemId && state.fillItemId !== itemId) return 0;
       setFill(state.fill + 1, itemId);
@@ -386,7 +390,7 @@ export async function createBeachBucket({
     crushUnderPlayer,
     tryMold(hit) {
       if (!carryable.carried || !equipped) return false;
-      if (state.fill < CASTLE_SAND_COST || !state.fillItemId) return false;
+      if (state.fill < CASTLE_SAND_COST || !isSandItemId(state.fillItemId)) return false;
       if (castles.length >= MAX_CASTLES) return false;
       if (!hit || (hit.kind !== "terrain" && hit.kind !== "castle")) return false;
       const preview = this.preview(hit);

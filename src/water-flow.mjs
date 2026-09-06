@@ -118,6 +118,8 @@ export function createWaterField(sandField = {}, options = {}) {
     chunk.cx = chunk.cx ?? cx;
     chunk.cz = chunk.cz ?? cz;
     chunk.water = makeWaterArray(chunk.water);
+    chunk.flowX ??= new Float32Array(CHUNK_CELLS * CHUNK_CELLS);
+    chunk.flowZ ??= new Float32Array(CHUNK_CELLS * CHUNK_CELLS);
     return chunk;
   }
 
@@ -162,6 +164,10 @@ export function createWaterField(sandField = {}, options = {}) {
     const applied = next - previous;
     if (applied === 0 && delta !== 0) return 0;
     chunk.water[index] = next;
+    if (next > .001) {
+      chunk.wet[index] = Math.max(chunk.wet[index], Math.min(1, .55 + next * 5));
+      sandField.markCellDirty?.(ix, iz);
+    }
     if ((previous > 0.02) !== (next > 0.02)) sandField.markCellDirty?.(ix, iz);
     chunk.dirty = true;
     markWaterChunk(chunk);
@@ -280,6 +286,9 @@ export function createWaterField(sandField = {}, options = {}) {
       const ix = batchIx[i];
       const iz = batchIz[i];
       const depth = waterAtCell(ix, iz);
+      const flowChunk = getChunk(Math.floor(ix/CHUNK_CELLS), Math.floor(iz/CHUNK_CELLS));
+      const flowIndex = localIndex(ix,iz,Math.floor(ix/CHUNK_CELLS),Math.floor(iz/CHUNK_CELLS));
+      if(flowChunk?.flowX) {flowChunk.flowX[flowIndex]=0;flowChunk.flowZ[flowIndex]=0;}
       if (depth <= MIN_DEPTH) continue;
       const surface = groundAt(ix, iz, heightAt, heightCache) + depth;
       let slopeSum = 0;
@@ -287,7 +296,10 @@ export function createWaterField(sandField = {}, options = {}) {
       for (let dir = 0; dir < 4; dir += 1) {
         const nix = ix + DIRS[dir][0];
         const niz = iz + DIRS[dir][1];
-        const neighborSurface = groundAt(nix, niz, heightAt, heightCache) + waterAtCell(nix, niz);
+        const nGround = groundAt(nix, niz, heightAt, heightCache);
+        const nPoint = extra.baseHeightAt ? cellCenter(nix, niz) : null;
+        const oceanBoundary = nPoint && extra.baseHeightAt(nPoint.x, nPoint.z) < extra.waterLevel;
+        const neighborSurface = oceanBoundary ? extra.waterLevel : nGround + waterAtCell(nix, niz);
         const slope = surface - neighborSurface;
         if (slope > 0) {
           slopes[dir] = slope;
@@ -317,6 +329,10 @@ export function createWaterField(sandField = {}, options = {}) {
         }
       }
       if (outgoing <= MIN_DEPTH) continue;
+      if(flowChunk?.flowX) for(let dir=0;dir<4;dir++) {
+        flowChunk.flowX[flowIndex]+=DIRS[dir][0]*outs[dir]*CELL_SIZE/(step*depth);
+        flowChunk.flowZ[flowIndex]+=DIRS[dir][1]*outs[dir]*CELL_SIZE/(step*depth);
+      }
 
       const origin = { ix, iz };
       const loose = sandField.cellAt?.(ix, iz);
@@ -372,6 +388,22 @@ export function createWaterField(sandField = {}, options = {}) {
     addToCell(ix, iz, Math.max(0, finiteNumber(depth, 0)) - current);
   }
 
+  function surfaceHeightAt(x, z, heightAt = defaultHeightAt) {
+    const u=x/CELL_SIZE-.5, v=z/CELL_SIZE-.5;
+    const ix=Math.floor(u), iz=Math.floor(v), fx=u-ix, fz=v-iz;
+    let head=0, weight=0;
+    for(let dz=0;dz<2;dz++) for(let dx=0;dx<2;dx++) {
+      const depth=waterAtCell(ix+dx,iz+dz);
+      if(depth<=MIN_DEPTH)continue;
+      const w=(dx?fx:1-fx)*(dz?fz:1-fz);
+      const p=cellCenter(ix+dx,iz+dz);
+      head+=(heightAt(p.x,p.z)+depth)*w;weight+=w;
+    }
+    // Dry neighbours have no free water surface. Including their ground in
+    // the interpolation makes the pool climb the bank in square patches.
+    return weight>1e-6 ? head/weight : heightAt(x,z);
+  }
+
   return {
     CELL_SIZE,
     CHUNK_CELLS,
@@ -381,6 +413,7 @@ export function createWaterField(sandField = {}, options = {}) {
     sandField,
     depthAt,
     depthAtCell,
+    surfaceHeightAt,
     setDepthAtCell,
     addWater,
     addDepth,

@@ -41,9 +41,9 @@ test("carrying the shovel presents an unobstructed ready-to-dig pose", async () 
   ]);
   assert.match(carryable, /camera\.add\(object\)/);
   assert.match(shovel, /object\.userData\.studioVisible === false/);
-  assert.match(shovel, /READY_POSITION = new THREE\.Vector3\(-0\.58, 0\.06, -0\.68\)/);
-  assert.match(shovel, /HELD_SCALE = 0\.82/);
-  assert.match(shovel, /READY_ROTATION = new THREE\.Euler\(-0\.18, 0\.12, -2\.02/);
+  assert.match(shovel, /READY_POSITION = new THREE\.Vector3\(0\.24, -0\.26, -0\.92\)/);
+  assert.match(shovel, /HELD_SCALE = 1\.0/);
+  assert.match(shovel, /READY_ROTATION = new THREE\.Euler\(2\.0, Math.PI, 0\.3/);
   assert.doesNotMatch(shovel, /FirstPersonShovelHands|first-person-hands|heldVisual/);
 });
 
@@ -55,9 +55,9 @@ test("digging uses a simple right-to-left swing and shoulder follow-through", as
   assert.match(shovel, /TOOL_AIM_DISTANCE/);
   assert.doesNotMatch(shovel, /MAX_DIG_HORIZONTAL_REACH/);
   assert.doesNotMatch(shovel, /aimDirection\.y > -0\.12/);
-  assert.match(shovel, /SWING_START_POSITION = new THREE\.Vector3\(0\.36/);
-  assert.match(shovel, /SWING_END_POSITION = new THREE\.Vector3\(-0\.54/);
-  assert.match(shovel, /SHOULDER_POSITION = new THREE\.Vector3\(-0\.38, 0\.32/);
+  assert.match(shovel, /SWING_START_POSITION = new THREE\.Vector3\(0\.28/);
+  assert.match(shovel, /SWING_END_POSITION = new THREE\.Vector3\(0\.06/);
+  assert.match(shovel, /SHOULDER_POSITION = new THREE\.Vector3\(0\.32, 0\.02/);
   assert.match(shovel, /phase === "windup"/);
   assert.match(shovel, /phase === "swing"/);
   assert.match(shovel, /phase === "shoulder"/);

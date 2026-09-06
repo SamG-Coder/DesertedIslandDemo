@@ -17,7 +17,6 @@ import { createMoonGlobe, createStarField } from "./sky-cycle.mjs";
 import { prepareStudioPalm } from "./palm-model.mjs";
 import { prepareStudioRockSet } from "./rock-model.mjs";
 import { SHOW_JUDGE_DESK, loadJudgeDesk, placeJudgeDesk } from "./table-model.mjs";
-import { markPalmDynamic } from "./palm-felling.mjs";
 import {
   HEIGHT_BOUNDS,
   WATER_LEVEL,
@@ -128,7 +127,6 @@ function addPalm(group, template, x, z, scale, yaw) {
   palm.position.set(x, ground, z);
   palm.rotation.y = yaw;
   palm.scale.setScalar(scale);
-  markPalmDynamic(palm);
   group.add(palm);
   return palm;
 }

@@ -1,5 +1,5 @@
 import * as THREE from "three/webgpu";
-import { float, positionWorld, texture, uniform, vec2 } from "three/tsl";
+import { float, positionWorld, texture, uniform, vec2, uv, instanceIndex, floor, attribute, mix } from "three/tsl";
 import {
   FOOTSTEP_SURFACES,
   advanceStride,
@@ -22,7 +22,7 @@ const EDIT_MERGE_DISTANCE = 0.22;
 const TERRAIN_COLUMNS = 300;
 const TERRAIN_ROWS = 260;
 const TERRAIN_UV_SCALE = 0.24;
-const DIG_CELL_SUBDIVISIONS = 12;
+const DIG_CELL_SUBDIVISIONS = 6;
 const SOLE_MIN_Z = -0.142;
 const SOLE_MAX_Z = 0.145;
 const SEAM_COLLAR = 0.05;
@@ -158,14 +158,24 @@ function createDepressedFootprintGeometry() {
 }
 
 function createDigState(scene, heightMap) {
-  const waterGeometry = new THREE.CircleGeometry(1, 32);
+  const waterGeometry = new THREE.PlaneGeometry(2, 2, 31, 31);
   waterGeometry.rotateX(-Math.PI * 0.5);
+  const depthData = new Float32Array(1024 * 512 * 4);
+  const depthAtlas = new THREE.DataTexture(depthData, 1024, 512, THREE.RGBAFormat, THREE.FloatType);
+  depthAtlas.minFilter = THREE.LinearFilter; depthAtlas.magFilter = THREE.LinearFilter;
+  depthAtlas.needsUpdate = true;
+  const tileX = float(instanceIndex).mod(32), tileY = floor(float(instanceIndex).div(32));
+  const poolSample = texture(depthAtlas, vec2(tileX, tileY).mul(32).add(uv().mul(31)).add(.5).div(vec2(1024, 512))).level(0);
+  const poolDepth = poolSample.r;
   // This is the beach water material itself, evaluated in local-pool mode so
   // its colour, reflections, cloud lighting, normals and transparency match
   // the ocean while each depression retains its own CPU-controlled height.
   const waterMaterial = createWaterMaterial(heightMap, null, {
     localPool: true,
     depth: 0.12,
+    poolDepth,
+    poolHeight: poolSample.g,
+    poolFlow: poolSample.ba,
   });
   const water = new THREE.InstancedMesh(waterGeometry, waterMaterial, DIG_COUNT);
   water.name = "Water retained inside shovel cuts";
@@ -198,6 +208,7 @@ function createDigState(scene, heightMap) {
     water,
     waterGeometry,
     waterMaterial,
+    depthAtlas, depthData,
     hidden,
     records,
     cursor: 0,
@@ -317,6 +328,7 @@ function createEditedTerrainGeometry(heightAt, digRecords, baseGeometry) {
   const normals = [];
   const uvs = [];
   const indices = [];
+  const boundaryVertices = [];
   const normalStep = 0.045;
 
   function addVertex(x, y, z) {
@@ -364,6 +376,7 @@ function createEditedTerrainGeometry(heightAt, digRecords, baseGeometry) {
           && (row === TERRAIN_ROWS - 1 || !refined.has(key + TERRAIN_COLUMNS));
         const boundary = leftOpen || rightOpen || nearOpen || farOpen;
         const y = boundary ? coarseHeight : heightAt(x, z);
+        boundaryVertices.push(boundary);
         patch[localRow * (DIG_CELL_SUBDIVISIONS + 1) + localColumn] = addVertex(x, y, z);
       }
     }
@@ -378,6 +391,7 @@ function createEditedTerrainGeometry(heightAt, digRecords, baseGeometry) {
 
   const geometry = new THREE.BufferGeometry();
   geometry.name = "Refined editable beach heightfield";
+  geometry.userData.boundaryVertices = boundaryVertices;
   geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
   geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
@@ -508,18 +522,39 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
   const holes = createTerrainHoleMask(world.terrain.material);
   const originalTerrainGeometry = world.terrain.geometry;
   const originalTerrainIndex = originalTerrainGeometry.getIndex();
+  const wetPixels = new Uint8Array(512 * 512);
+  const wetTexture = new THREE.DataTexture(wetPixels, 512, 512, THREE.RedFormat);
+  wetTexture.minFilter = THREE.LinearFilter; wetTexture.magFilter = THREE.LinearFilter;
+  wetTexture.needsUpdate = true;
+  const wetOrigin = uniform(new THREE.Vector2(-32, -50));
+  const simulationWetness = texture(wetTexture, positionWorld.xz.sub(wetOrigin).div(64)).r;
+  const originalColorNode = world.terrain.material.colorNode;
+  world.terrain.material.colorNode = originalColorNode.mul(mix(1, .58, simulationWetness));
+  world.terrain.material.needsUpdate = true;
   const editableMaterial = world.terrain.material.clone();
   editableMaterial.name = "Editable beach terrain material";
   editableMaterial.alphaTestNode = null;
   editableMaterial.alphaTest = 0;
   editableMaterial.opacityNode = null;
+  const localWetness = attribute('sandWetness', 'float');
+  editableMaterial.colorNode = editableMaterial.colorNode.mul(mix(1, .48, localWetness));
+  editableMaterial.roughnessNode = mix(editableMaterial.roughnessNode ?? float(.95), .58, localWetness);
   editableMaterial.needsUpdate = true;
-  const editableTerrain = new THREE.Mesh(new THREE.BufferGeometry(), editableMaterial);
+  // Include the edited-terrain pipeline in the loading-screen shader warmup.
+  // The initial triangle is underground; real edit geometry replaces it.
+  const warmupGeometry = new THREE.PlaneGeometry(.01, .01);
+  warmupGeometry.rotateX(-Math.PI / 2);
+  warmupGeometry.translate(0, -1000, 0);
+  warmupGeometry.setAttribute('sandWetness', new THREE.Float32BufferAttribute(new Float32Array(4), 1));
+  const editableTerrain = new THREE.Mesh(warmupGeometry, editableMaterial);
   editableTerrain.name = "Locally editable beach terrain cells";
   editableTerrain.receiveShadow = true;
   editableTerrain.castShadow = true;
   editableTerrain.userData.rtxIgnore = true;
+  editableTerrain.frustumCulled = false;
+  scene.add(editableTerrain);
   let refinedSignature = "";
+  let editFootprintSignature = '';
   const tracker = createStrideTracker();
   const normal = new THREE.Vector3();
   const forward = new THREE.Vector3();
@@ -534,6 +569,47 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
   let maskDirty = true;
   let simMeshCool = 0;
   let simMeshPending = false;
+  let poolUpdateTime = 0;
+  let wetUpdateTime = 0;
+  const waterChunkSlots = new Map();
+
+  function renderSimulatedWater() {
+    let uploaded = false;
+    terrainSim.waterField.forEachDirtyChunk(chunk => {
+      const key = `${chunk.cx},${chunk.cz}`;
+      let slot = waterChunkSlots.get(key);
+      let hasWater = false;
+      for (let i=0;i<chunk.water.length;i++) if (chunk.water[i] > .0005) { hasWater=true; break; }
+      if (!hasWater) {
+        if (slot !== undefined) { digs.water.setMatrixAt(slot,digs.hidden); uploaded=true; }
+        return;
+      }
+      if (slot === undefined) {
+        if (waterChunkSlots.size >= DIG_COUNT) return;
+        slot = waterChunkSlots.size; waterChunkSlots.set(key,slot);
+      }
+      const tileX=(slot%32)*32, tileY=Math.floor(slot/32)*32;
+      const originX=chunk.cx*4, originZ=chunk.cz*4;
+      for(let py=0;py<32;py++) for(let px=0;px<32;px++) {
+        // Include the interpolation halo across chunk boundaries so a pool
+        // is not cut into a square where its neighbouring chunk is dry.
+        const x=originX-.125+px/31*4.25, z=originZ-.125+(1-py/31)*4.25;
+        const ground=terrainSim.heightAt(x,z);
+        const head=terrainSim.waterField.surfaceHeightAt(x,z,terrainSim.heightAt);
+        const depth=Math.max(0,head-ground);
+        const offset=((tileY+py)*1024+tileX+px)*4;
+        digs.depthData[offset]=depth;
+        digs.depthData[offset+1]=head;
+        const flowIndex=Math.min(15,Math.floor((31-py)/2))*16+Math.min(15,Math.floor(px/2));
+        digs.depthData[offset+2]=chunk.flowX?.[flowIndex] ?? 0;
+        digs.depthData[offset+3]=chunk.flowZ?.[flowIndex] ?? 0;
+      }
+      waterTransform.position.set(originX+2,0,originZ+2);
+      waterTransform.rotation.set(0,0,0);waterTransform.scale.set(2.125,1,2.125);waterTransform.updateMatrix();
+      digs.water.setMatrixAt(slot,waterTransform.matrix);uploaded=true;
+    });
+    if(uploaded) {digs.depthAtlas.needsUpdate=true;digs.water.instanceMatrix.needsUpdate=true;}
+  }
 
   function editedSandAt(x, z) {
     return Number(terrainSim?.sandAt?.(x, z)) || 0;
@@ -582,19 +658,59 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
 
   function rebuildTerrainGeometry() {
     if (!collisionWorld?.terrainHeightAt) return;
+    const footprint = digs.records.filter(r => r.active).map(r => `${r.x},${r.z},${r.radiusX},${r.radiusZ}`).join(';');
+    const cached = editableTerrain.geometry;
+    if (footprint === editFootprintSignature && cached.userData.boundaryVertices) {
+      const position = cached.attributes.position, normal = cached.attributes.normal;
+      const wetness = cached.attributes.sandWetness;
+      const heightAt = collisionWorld.terrainHeightAt;
+      for (let i = 0; i < position.count; i++) {
+        const x = position.getX(i), z = position.getZ(i);
+        wetness.setX(i, terrainSim?.wetnessAt(x, z) ?? 0);
+        if (!cached.userData.boundaryVertices[i]) position.setY(i, heightAt(x, z));
+        const nx = -(heightAt(x + .045, z) - heightAt(x - .045, z)) / .09;
+        const nz = -(heightAt(x, z + .045) - heightAt(x, z - .045)) / .09;
+        const length = Math.hypot(nx, 1, nz);
+        normal.setXYZ(i, nx / length, 1 / length, nz / length);
+      }
+      position.needsUpdate = true; normal.needsUpdate = true;
+      wetness.needsUpdate = true;
+      cached.computeBoundingSphere();
+      return;
+    }
+    editFootprintSignature = footprint;
     const edit = createEditedTerrainGeometry(
       collisionWorld.terrainHeightAt,
       digs.records,
       originalTerrainGeometry,
     );
     const nextSignature = [...edit.refined].sort((a, b) => a - b).join(",");
+    const wetness = new Float32Array(edit.geometry.attributes.position.count);
+    for (let i=0;i<wetness.length;i++) wetness[i] = terrainSim?.wetnessAt(edit.geometry.attributes.position.getX(i), edit.geometry.attributes.position.getZ(i)) ?? 0;
+    edit.geometry.setAttribute('sandWetness', new THREE.Float32BufferAttribute(wetness, 1));
     if (nextSignature !== refinedSignature) {
       originalTerrainGeometry.setIndex(createUneditedTerrainIndex(edit.refined));
       refinedSignature = nextSignature;
     }
     const previousGeometry = editableTerrain.geometry;
-    editableTerrain.geometry = edit.geometry;
-    previousGeometry.dispose();
+    const reusable = previousGeometry.attributes.position?.count === edit.geometry.attributes.position.count
+      && previousGeometry.index?.count === edit.geometry.index?.count;
+    if (reusable) {
+      for (const [name, attribute] of Object.entries(edit.geometry.attributes)) {
+        previousGeometry.attributes[name].array.set(attribute.array);
+        previousGeometry.attributes[name].needsUpdate = true;
+      }
+      if (edit.geometry.index) {
+        previousGeometry.index.array.set(edit.geometry.index.array);
+        previousGeometry.index.needsUpdate = true;
+      }
+      previousGeometry.boundingSphere = edit.geometry.boundingSphere;
+      previousGeometry.userData.boundaryVertices = edit.geometry.userData.boundaryVertices;
+      edit.geometry.dispose();
+    } else {
+      editableTerrain.geometry = edit.geometry;
+      previousGeometry.dispose();
+    }
     if (!editableTerrain.parent) scene.add(editableTerrain);
   }
 
@@ -656,11 +772,11 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
     return true;
   }
 
-  function applySandEdit(hit, amount, label, { scoop = false } = {}) {
+  function applySandEdit(hit, amount, label, { scoop = false, waterOnly = false } = {}) {
     const x = Number(hit.x);
     const z = Number(hit.z);
     if (!Number.isFinite(x) || !Number.isFinite(z)) return false;
-    if (terrainSim) {
+    if (terrainSim && !waterOnly) {
       if (amount > 0) terrainSim.stampDump(hit);
       else if (scoop) terrainSim.stampScoop(hit);
       else terrainSim.stampDig(hit);
@@ -714,7 +830,7 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
   }
 
   function digSand(hit) {
-    return applySandEdit(hit, -DIG_DEPTH, "Removed shovel-sized sand chunk");
+    return applySandEdit(hit, -DIG_DEPTH * (hit.strength ?? 1), "Removed shovel-sized sand chunk");
   }
 
   function dumpSand(hit) {
@@ -732,13 +848,19 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
   }
 
   function updateDigWater(dt) {
+    poolUpdateTime += dt;
+    if (poolUpdateTime < .1) return;
+    dt = poolUpdateTime; poolUpdateTime = 0;
+    if (terrainSim) { renderSimulatedWater(); return; }
     const active = [];
     for (const record of digs.records) {
       if (record.active) active.push(record);
     }
     if (!active.length) return;
 
-    for (let i = 0; i < active.length; i += 1) {
+    // The heightfield already transports water. Keep the legacy fallback only
+    // for hosts without that simulation, avoiding duplicate all-pairs flow.
+    for (let i = 0; !terrainSim && i < active.length; i += 1) {
       const a = active[i];
       for (let j = i + 1; j < active.length; j += 1) {
         const b = active[j];
@@ -748,7 +870,9 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
         const bHole = holeDepth(b);
         const aSurface = a.rimHeight + a.amount + a.waterDepth;
         const bSurface = b.rimHeight + b.amount + b.waterDepth;
-        const transfer = THREE.MathUtils.clamp((aSurface - bSurface) * dt * 0.8, -0.02, 0.02);
+        const transfer = THREE.MathUtils.clamp((aSurface - bSurface) * dt * 0.8,
+          -Math.min(0.02, b.waterDepth, Math.max(0, aHole - 0.008 - a.waterDepth)),
+          Math.min(0.02, a.waterDepth, Math.max(0, bHole - 0.008 - b.waterDepth)));
         a.waterDepth = THREE.MathUtils.clamp(a.waterDepth - transfer, 0, Math.max(0, aHole - 0.008));
         b.waterDepth = THREE.MathUtils.clamp(b.waterDepth + transfer, 0, Math.max(0, bHole - 0.008));
       }
@@ -756,9 +880,12 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
 
     let matricesChanged = false;
     for (const record of active) {
+      const cellX = (Math.floor(record.x / .25) + .5) * .25;
+      const cellZ = (Math.floor(record.z / .25) + .5) * .25;
+      if (terrainSim) record.amount = Math.min(terrainSim.heightAt(record.x, record.z), terrainSim.heightAt(cellX, cellZ)) - record.rimHeight;
       const depth = holeDepth(record);
       if (depth <= 0.008) {
-        if (record.waterDepth > 0) matricesChanged = true;
+        matricesChanged = true;
         record.waterDepth = 0;
         digs.water.setMatrixAt(record.index, digs.hidden);
         continue;
@@ -767,7 +894,9 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
       const seaDepth = record.seaConnected
         ? THREE.MathUtils.clamp(WATER_LEVEL - bottom, 0, depth - 0.008)
         : 0;
-      const runoffDepth = surfaceWater?.standingWaterDepthAt?.(record.x, record.z) ?? 0;
+      const runoffDepth = Math.min(Math.max(0, depth - 0.008), Math.max(
+        terrainSim?.waterDepthAt(cellX, cellZ) ?? 0,
+        surfaceWater?.standingWaterDepthAt?.(record.x, record.z) ?? 0));
       // Wet sand is not standing water. A cut only exposes water when it
       // reaches the sea table or runoff actually enters the depression.
       const targetDepth = Math.max(seaDepth, runoffDepth);
@@ -775,11 +904,27 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
       const nextDepth = THREE.MathUtils.damp(record.waterDepth, targetDepth, rate * 60, dt);
       if (Math.abs(nextDepth - record.waterDepth) > 1e-5) matricesChanged = true;
       record.waterDepth = nextDepth;
-      if (record.waterDepth > 0.006) {
-        waterTransform.position.set(record.x, bottom + record.waterDepth + 0.004, record.z);
-        waterTransform.rotation.set(0, Math.atan2(record.forwardX, record.forwardZ), 0);
+      if (record.waterDepth > 0.001) {
+        const simulatedHead = terrainSim && terrainSim.waterDepthAt(cellX, cellZ) > .001
+          ? terrainSim.heightAt(cellX, cellZ) + terrainSim.waterDepthAt(cellX, cellZ)
+          : bottom + record.waterDepth;
+        waterTransform.position.set(record.x, 0, record.z);
+        waterTransform.rotation.set(0, 0, 0);
         const fill = THREE.MathUtils.clamp(record.waterDepth / depth, 0, 1);
-        waterTransform.scale.set(DIG_RADIUS_X * (0.62 + fill * 0.28), 1, DIG_RADIUS_Z * (0.62 + fill * 0.28));
+        const radiusX = Math.max(DIG_RADIUS_X, record.radiusX || 0);
+        const radiusZ = Math.max(DIG_RADIUS_Z, record.radiusZ || 0);
+        waterTransform.scale.set(radiusX, 1, radiusZ);
+        const tileX = (record.index % 32) * 32, tileY = Math.floor(record.index / 32) * 32;
+        for (let py = 0; py < 32; py++) for (let px = 0; px < 32; px++) {
+          const x = record.x + (px / 31 * 2 - 1) * radiusX;
+          const z = record.z + (1 - py / 31 * 2) * radiusZ;
+          const ground = collisionWorld.terrainHeightAt(x, z);
+          const waterDepth = terrainSim?.waterDepthAt(x, z) ?? Math.max(0, simulatedHead - ground);
+          const offset = ((tileY + py) * 1024 + tileX + px) * 4;
+          digs.depthData[offset] = waterDepth;
+          digs.depthData[offset + 1] = ground + waterDepth;
+        }
+        digs.depthAtlas.needsUpdate = true;
         waterTransform.updateMatrix();
         digs.water.setMatrixAt(record.index, waterTransform.matrix);
         matricesChanged = true;
@@ -864,14 +1009,35 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
     dig: digSand,
     dump: dumpSand,
     scoop: scoopSand,
+    pourWater(hit) {
+      return applySandEdit(hit, 0, 'Poured bucket water', { waterOnly: true });
+    },
     update(dt, view) {
+      wetUpdateTime += dt;
+      if (terrainSim && wetUpdateTime >= .1) {
+        wetUpdateTime=0;wetPixels.fill(0);
+        const ox=Math.floor(view.x/4)*4-32, oz=Math.floor(view.z/4)*4-32;
+        wetOrigin.value.set(ox,oz);
+        for(const chunk of terrainSim.sandField.chunks.values()) {
+          if(chunk.cx*4+4<ox || chunk.cx*4>ox+64 || chunk.cz*4+4<oz || chunk.cz*4>oz+64) continue;
+          for(let i=0;i<256;i++) {
+            const wet=chunk.wet[i];if(wet<=0)continue;
+            const px=Math.round((chunk.cx*4+(i%16)*.25-ox)*8);
+            const py=Math.round((chunk.cz*4+Math.floor(i/16)*.25-oz)*8);
+            for(let y=0;y<2;y++)for(let x=0;x<2;x++) {
+              if(px+x>=0 && px+x<512 && py+y>=0 && py+y<512) wetPixels[(py+y)*512+px+x]=Math.round(wet*255);
+            }
+          }
+        }
+        wetTexture.needsUpdate=true;
+      }
       if (terrainSim) {
         const moved = terrainSim.update(dt) || 0;
         simMeshPending ||= moved > 0.000001;
         simMeshCool -= dt;
         if (simMeshPending && simMeshCool <= 0) {
           rebuildTerrainGeometry();
-          simMeshCool = 0.12;
+          simMeshCool = 1 / 20;
           simMeshPending = false;
         }
       }
@@ -913,6 +1079,8 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
       pool.material.dispose();
       digs.waterGeometry.dispose();
       digs.waterMaterial.dispose();
+      digs.depthAtlas.dispose();
+      wetTexture.dispose();world.terrain.material.colorNode=originalColorNode;
       holes.texture.dispose();
     },
   };

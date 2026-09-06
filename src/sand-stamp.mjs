@@ -45,7 +45,7 @@ export function stampDig(field, hit) {
   if (hit.toolMode === 'Smooth' || hit.toolMode === 'Flatten') return sculptSand(field, hit);
   const brush = shovelBrush(hit.toolMode);
   return field.stamp(hit.x, hit.z, {
-    amount: -SCOOP_VOLUME_HEIGHT,
+    amount: -SCOOP_VOLUME_HEIGHT * Math.max(0, Math.min(1, hit.strength ?? 1)),
     radiusX: brush.radiusX,
     radiusZ: brush.radiusZ,
     forwardX: hit.forwardX,

@@ -24,13 +24,6 @@ export const BEACH_ITEMS = Object.freeze({
     category: "tool",
     colors: Object.freeze({ top: "#79b9bc", left: "#43868c", right: "#305f68" }),
   }),
-  axe: Object.freeze({
-    id: "axe",
-    name: "Felling Axe",
-    maxStack: 1,
-    category: "tool",
-    colors: Object.freeze({ top: "#c5ccd3", left: "#6b4423", right: "#4e3219" }),
-  }),
   "dry-sand": Object.freeze({
     id: "dry-sand",
     name: "Dry Sand",

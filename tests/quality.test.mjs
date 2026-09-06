@@ -10,7 +10,7 @@ test("browser quality lowers cloud steps, rain, water mesh, and shadow work", as
   const source = await readFile(path.join(root, "src/quality.mjs"), "utf8");
   assert.match(source, /export const BROWSER_QUALITY/);
   assert.match(source, /isBrowserHost\(\)/);
-  assert.match(source, /cloudSteps: 18/);
+  assert.match(source, /cloudSteps: 24/);
   assert.match(source, /cloudSteps: 48/);
   assert.match(source, /rainCount: 360/);
   assert.match(source, /rainCount: 1800/);

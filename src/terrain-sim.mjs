@@ -35,8 +35,11 @@ export function createTerrainSim({
   const level = finiteNumber(waterLevel, DEFAULT_WATER_LEVEL);
   const budget = Math.max(1, Math.floor(finiteNumber(maxCells, DEFAULT_MAX_CELLS)));
 
-  const sandField = createSandField({ heightAt: sampleTerrain });
-  const waterField = createWaterField(sandField);
+  let waterField;
+  const sandField = createSandField({ heightAt: sampleTerrain, onHeightChange(ix, iz) {
+    for (let z=-1;z<=1;z++) for(let x=-1;x<=1;x++) waterField?.markCellDirty(ix+x, iz+z);
+  } });
+  waterField = createWaterField(sandField);
 
   function heightAt(x, z) {
     return sampleTerrain(x, z) + finiteNumber(sandField.sandAt(x, z));
@@ -79,6 +82,7 @@ export function createTerrainSim({
     const step = {
       maxCells: cells,
       heightAt,
+      baseHeightAt: sampleTerrain,
       wetnessAt,
       waterDepthAt,
       waterLevel: level,

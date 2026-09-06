@@ -269,7 +269,9 @@ export function createMappedMaterial(maps, options = {}) {
     roughness: options.roughness ?? 0.86,
     color: options.color ?? 0xffffff,
   });
-  material.colorNode = colorNode;
+  material.colorNode = options.sandGrain
+    ? colorNode.mul(mx_noise_float(positionWorld.mul(180)).mul(0.12).add(0.94))
+    : colorNode;
   material.normalNode = mappedNormal;
   if (options.roughnessFromHeight) {
     material.roughnessNode = mix(
@@ -616,12 +618,12 @@ export function createWaterMaterial(heightMap, persistentFoamSample = null, opti
   const waves = sampleWaves(point, waterTime);
   const ground = sampleGroundHeight(heightMap, point);
   const localPool = options.localPool === true;
-  const waveScale = float(localPool ? 0.055 : 1);
+  const waveScale = float(localPool ? 0 : 1);
   const depth = localPool
-    ? float(options.depth ?? 0.12)
+    ? options.poolDepth ?? float(options.depth ?? 0.12)
     : waterLevel.add(waves.height).sub(ground);
   const optical = float(1).sub(exp(max(depth, float(0)).mul(-0.75)));
-  const coverage = localPool ? float(1) : smoothstep(float(-0.03), float(0.045), depth);
+  const coverage = localPool ? smoothstep(0.0005, 0.004, depth) : smoothstep(float(-0.03), float(0.045), depth);
   const live = localPool ? float(0) : foamSourceFromWaves(point, waves, ground);
   const field = typeof persistentFoamSample === "function"
     ? persistentFoamSample(point)
@@ -635,7 +637,7 @@ export function createWaterMaterial(heightMap, persistentFoamSample = null, opti
   const planeFade = localPool ? float(1) : float(1).sub(max(rimX, max(rimFar, rimNear)));
   const foam = foamLaceNode(mass, age, parcel, live).mul(coverage).mul(planeFade);
   const deep = vec3(0.012, 0.07, 0.12);
-  const shallow = vec3(0.08, 0.32, 0.34);
+  const shallow = localPool ? vec3(0.09, 0.14, 0.12) : vec3(0.055, 0.23, 0.22);
   const waterColor = mix(shallow, deep, optical);
   const young = float(1).sub(smoothstep(0.0, 0.28, age));
   const foamColor = mix(
@@ -681,24 +683,42 @@ export function createWaterMaterial(heightMap, persistentFoamSample = null, opti
     metalness: 0,
     roughness: 0.22,
     transparent: true,
-    depthWrite: true,
+    depthWrite: !localPool,
     side: THREE.FrontSide,
     color: 0x0c3d4a,
     fog: true,
   });
   material.envMapIntensity = 0.65;
+  if (localPool) {
+    material.alphaTest = .01;
+    material.depthWrite = true;
+    material.depthFunc = THREE.LessDepth;
+  }
   material.positionNode = positionLocal.add(vec3(
     waves.chopX.mul(waveScale),
     waves.height.mul(waveScale),
     waves.chopZ.mul(waveScale),
   ));
+  if (localPool && options.poolHeight) {
+    material.positionNode = vec3(positionLocal.x, options.poolHeight, positionLocal.z);
+  }
   material.colorNode = applyCloudShadow(mix(waterColor, foamColor, foam), point, 0.34);
-  material.emissiveNode = vec3(1, 0.9, 0.72).mul(sunSpec);
+  const skyReflection = pow(float(1).sub(saturate(dot(normalWorld, viewDir))), 5);
+  material.emissiveNode = vec3(1, 0.9, 0.72).mul(sunSpec)
+    .add(mix(skyHorizon, skyZenith, saturate(normalWorld.y)).mul(skyReflection).mul(.32));
   material.normalNode = shadedNormalView;
+  if (localPool && options.poolHeight) {
+    const flow = options.poolFlow ?? vec2(0,0);
+    const speed = length(flow).min(2);
+    const direction = normalize(flow.add(vec2(.0001,.0001)));
+    const ripple = sin(dot(point.xz,direction).mul(25).sub(waterTime.mul(speed.mul(25).add(1))))
+      .mul(speed.mul(.002).add(.0005));
+    material.normalNode = bumpMap(options.poolHeight.add(ripple), .8);
+  }
   material.roughnessNode = mix(float(0.18), mix(float(0.32), float(0.48), young), foam);
   const fresnel = pow(float(1).sub(saturate(dot(normalWorld, viewDir))), 5).mul(0.98).add(0.02);
   material.opacityNode = saturate(
-    mix(float(0.12), float(0.86), optical).add(fresnel.mul(0.75)).add(foam.mul(0.4)),
+    mix(float(localPool ? 0.52 : 0.12), float(0.86), optical).add(fresnel.mul(0.75)).add(foam.mul(0.4)),
   ).mul(coverage).mul(planeFade);
   return tag(material, 0, { water: true, rtxIgnore: true });
 }

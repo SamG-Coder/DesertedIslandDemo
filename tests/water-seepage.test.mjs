@@ -109,7 +109,7 @@ test("infiltration reduces standing depth and increases sand wetness if API allo
     return;
   }
 
-  water.addWater(x, z, 0.28);
+  water.addWater(x, z, 0.04);
   const depthBefore = water.depthAt(x, z);
   const wetBefore = sand.wetAt(x, z);
   assert.ok(depthBefore > 0);

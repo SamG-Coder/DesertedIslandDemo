@@ -77,7 +77,7 @@ test("updating a dump pile does not throw and keeps a finite height", () => {
 });
 
 test("ocean fill heuristic floods a pit dug below water at z=20", () => {
-  const sim = createSim();
+  const sim = createTerrainSim({terrainHeight:()=>-.2,waterLevel:WATER_LEVEL});
   const x = 0;
   const z = 20;
   for (let i = 0; i < 12; i += 1) sim.stampDig(x, z);

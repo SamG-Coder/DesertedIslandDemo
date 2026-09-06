@@ -5,22 +5,22 @@ import { TOOL_AIM_DISTANCE } from "./collision-system.mjs";
 import { SHOVEL_STAMP_RADIUS } from "./sand-stamp.mjs";
 import { SHOVEL_MODES, shovelBrush } from './shovel-brush.mjs';
 
-const READY_POSITION = new THREE.Vector3(-0.58, 0.06, -0.68);
-const READY_ROTATION = new THREE.Euler(-0.18, 0.12, -2.02, "XYZ");
-const HELD_SCALE = 0.82;
-const SWING_START_POSITION = new THREE.Vector3(0.36, -0.12, -0.68);
-const SWING_END_POSITION = new THREE.Vector3(-0.54, -0.38, -0.68);
-const SHOULDER_POSITION = new THREE.Vector3(-0.38, 0.32, -0.42);
-const SWING_START_ROTATION = new THREE.Euler(-0.24, 0.08, -0.58, "XYZ");
-const SWING_END_ROTATION = new THREE.Euler(-0.12, 0.1, -1.62, "XYZ");
-const SHOULDER_ROTATION = new THREE.Euler(-0.42, 0.18, -2.68, "XYZ");
+const READY_POSITION = new THREE.Vector3(0.24, -0.26, -0.92);
+const READY_ROTATION = new THREE.Euler(2.0, Math.PI, 0.3, "XYZ");
+const HELD_SCALE = 1.0;
+const SWING_START_POSITION = new THREE.Vector3(0.28, -0.08, -0.95);
+const SWING_END_POSITION = new THREE.Vector3(0.06, -0.5, -1.35);
+const SHOULDER_POSITION = new THREE.Vector3(0.32, 0.02, -0.86);
+const SWING_START_ROTATION = new THREE.Euler(2.1, Math.PI, 0.32, "XYZ");
+const SWING_END_ROTATION = new THREE.Euler(1.85, Math.PI, 0.24, "XYZ");
+const SHOULDER_ROTATION = new THREE.Euler(2.2, Math.PI, 0.38, "XYZ");
 const DIG_AIM_TRACE = TOOL_AIM_DISTANCE;
 
-const WINDUP_SECONDS = 0.2;
-const SWING_SECONDS = 0.34;
-const SHOULDER_SECONDS = 0.32;
-const SHOULDER_HOLD_SECONDS = 0.1;
-const RECOVER_SECONDS = 0.3;
+const WINDUP_SECONDS = 0.14;
+const SWING_SECONDS = 0.3;
+const SHOULDER_SECONDS = 0.26;
+const SHOULDER_HOLD_SECONDS = 0.025;
+const RECOVER_SECONDS = 0.18;
 
 function smoothstep01(value) {
   const t = THREE.MathUtils.clamp(value, 0, 1);
@@ -51,6 +51,7 @@ function createDigAnimation(object, camera, collisionWorld, isCarried, onDig, ge
   let phaseTime = 0;
   let targetKind = "terrain";
   let targetMode = 'Dig';
+  let cutSteps = 0;
 
   function poseBetween(fromPosition, toPosition, fromRotation, toRotation, alpha) {
     object.position.lerpVectors(fromPosition, toPosition, alpha);
@@ -89,6 +90,7 @@ function createDigAnimation(object, camera, collisionWorld, isCarried, onDig, ge
       targetWorld.set(aimedContact.x, aimedContact.y, aimedContact.z);
       targetKind = aimedContact.kind;
       targetMode = getMode();
+      cutSteps = 0;
       phase = "windup";
       phaseTime = 0;
       return true;
@@ -122,8 +124,9 @@ function createDigAnimation(object, camera, collisionWorld, isCarried, onDig, ge
         // Dip the middle of the right-to-left sweep so it reads as cutting
         // through sand rather than moving across a flat horizontal rail.
         object.position.y -= Math.sin(t * Math.PI) * 0.09;
-        if (phaseTime >= SWING_SECONDS) {
-          console.log(`[First-Person Beach] Shovel struck ${targetKind}`);
+        const desiredCuts = Math.min(3, Math.max(0, Math.floor((phaseTime / SWING_SECONDS - .25) * 4)));
+        while (cutSteps < desiredCuts) {
+          cutSteps++;
           if (targetKind === "terrain" || targetKind === "rock") {
             const horizontalLength = Math.hypot(aimDirection.x, aimDirection.z) || 1;
             onDig?.({
@@ -134,8 +137,12 @@ function createDigAnimation(object, camera, collisionWorld, isCarried, onDig, ge
               forwardZ: aimDirection.z / horizontalLength,
               kind: targetKind,
               toolMode: targetMode,
+              strength: 1 / 3,
+              partialStroke: cutSteps < 3,
             });
           }
+        }
+        if (phaseTime >= SWING_SECONDS) {
           if (targetKind === "terrain") beginPhase("shoulder");
           else beginPhase("recover");
         }
@@ -171,6 +178,9 @@ export async function createBeachShovel(scene, camera, view, collisionWorld, onD
   anchor.name = "Carryable detailed beach shovel";
   anchor.userData.rtxIgnore = true;
   anchor.add(gltf.scene);
+  // Roll around the shaft, preserving blade/handle positions while turning
+  // the concave scooping face upward instead of showing its underside.
+  gltf.scene.rotation.y = Math.PI;
   gltf.scene.traverse(object => {
     if (object.userData.studioVisible === false) {
       object.visible = false;

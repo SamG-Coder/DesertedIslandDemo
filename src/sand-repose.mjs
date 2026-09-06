@@ -163,6 +163,8 @@ export function relaxSandRepose(field, dt, {
         const transfer = excess * 0.5 * rate;
         here.chunk.sand[here.index] -= transfer;
         neighbor.chunk.sand[neighbor.index] += transfer;
+        field.notifyHeightChange?.(ix, iz);
+        field.notifyHeightChange?.(nix, niz);
         h -= transfer;
         changed = true;
         field.markDirty(ix, iz);

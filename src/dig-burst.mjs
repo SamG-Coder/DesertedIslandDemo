@@ -120,7 +120,7 @@ function createSprayLayer(scene, { name, count, size, opacity, renderOrder }) {
   points.frustumCulled = false;
   points.renderOrder = renderOrder;
   points.userData.rtxIgnore = true;
-  points.visible = false;
+  points.visible = true; // Initially offscreen, but warm the particle shader before digging.
   scene.add(points);
 
   const state = Array.from({ length: count }, () => ({
@@ -224,7 +224,7 @@ export function createDigBurstSystem(scene, collisionWorld, random = Math.random
   grains.renderOrder = 8;
   grains.castShadow = false;
   grains.receiveShadow = false;
-  grains.visible = false;
+  grains.visible = true; // Zero-scale instances participate in startup compilation.
   grains.userData.rtxIgnore = true;
   grains.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 

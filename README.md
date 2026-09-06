@@ -73,8 +73,9 @@ stages on stdout; it still presents one swapchain image with no HTML overlay.
 | `E` | Pick up nearby tools or an aimed shell/seaweed |
 | `V` | Drop equipped tool |
 | Mouse wheel | Select previous / next hotbar slot |
-| Primary click | Shovel: sculpt; bucket: scoop sand; axe: chop |
-| Right click | Bucket: build selected mould; shell/seaweed: decorate aimed surface |
+| Hold primary click | Shovel: repeat soft scoops until released |
+| Primary click | Bucket: scoop sand or water from the aimed surface |
+| Right click | Water bucket: pour; sand bucket: build selected mould; shell/seaweed: decorate aimed surface |
 | `Tab` | Open / close the inventory canvas |
 | `1`–`9` | Select the focused hotbar slot |
 | Drag | Move stacks between storage (top) and the hotbar (bottom) |

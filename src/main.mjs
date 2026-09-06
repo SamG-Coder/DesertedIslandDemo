@@ -6,6 +6,7 @@ import { carryableInteractScore } from "./carryable-system.mjs";
 import { SHOVEL_RADIUS_X, SHOVEL_RADIUS_Z, SHOVEL_STAMP_RADIUS } from "./sand-stamp.mjs";
 import { createAimPreview } from "./aim-preview.mjs";
 import { createPlayerInput, shouldCapturePointer, nextHotbarSlot } from './player-input.mjs';
+import { collectBucketWater, pourBucketWater } from './bucket-water.mjs';
 import { createBeachTreasures, isTreasure } from './beach-treasures.mjs';
 import { createBeachFootstepSystem } from "./footstep-system.mjs";
 import { loadAllTileMaps, syncSkyUniforms, waterTime } from "./materials.mjs";
@@ -21,8 +22,6 @@ import { createTerrainSim } from "./terrain-sim.mjs";
 import { createBeachWeather, stormAmount } from "./weather.mjs";
 import { sampleOceanHeight } from "./ocean-waves.mjs";
 import { canShovelHit, createBeachShovel } from "./shovel-system.mjs";
-import { canAxeHit, createBeachAxe } from "./axe-system.mjs";
-import { createPalmDebrisSystem } from "./palm-felling.mjs";
 import {
   CASTLE_FOOTPRINT_RADIUS,
   CASTLE_PLACEMENT_IGNORE,
@@ -120,7 +119,7 @@ renderer.backend.device?.addEventListener?.("uncapturederror", event => {
 
 const rtx = navigator.gpu?.threeBrowserRTX ?? null;
 reportBridge(rtx);
-console.log("[First-Person Beach] Click/dig · Right-click fill bucket, scoop piles, dump sand, or mold castle · Axe chops palms · WASD walk · Shift sprint · Space jump · E carry/drop · Tab inventory · 1-9 hotbar · X RTX");
+console.log("[First-Person Beach] Hold click to dig · Bucket scoops sand or water · WASD walk · Shift sprint · Space jump · E pick up · V drop · Tab inventory · 1-9 hotbar");
 if (isBrowserHost()) {
   console.log(
     "[First-Person Beach] Browser quality: fewer cloud steps, cheaper terrain maps, lighter rain, and smaller shadows",
@@ -176,6 +175,7 @@ const digBurst = createDigBurstSystem(scene, collisionWorld);
 function collectFromDig(hit) {
   const kind = hit.kind || "terrain";
   if (kind === "terrain") footsteps.dig(hit);
+  if (hit.partialStroke) return;
   if (hit.toolMode === 'Smooth' || hit.toolMode === 'Flatten') return;
   const support = collisionWorld.surfaceAt(hit.x, hit.z);
   const surface = classifyBeachSurface({
@@ -219,7 +219,7 @@ const aimOrigin = new THREE.Vector3();
 const aimDirection = new THREE.Vector3();
 
 function dumpOntoGround() {
-  if (hud.open || shovel.digging || axe.chopping) return false;
+  if (hud.open || shovel.digging) return false;
   if (bucket.carried && bucket.equipped) return false;
   const itemId = dumpableSandId(inventory);
   if (!itemId) return false;
@@ -290,24 +290,6 @@ const bucket = await createBeachBucket({
 const castleBenchmark = isBrowserHost() && new URLSearchParams(globalThis.location?.search ?? '').get('benchmark') === 'castles';
 if (castleBenchmark) bucket.populateBenchmark();
 
-const palmDebris = createPalmDebrisSystem(scene, collisionWorld);
-
-function collectFromChop(result) {
-  if (!result?.itemId) return;
-  const leftover = inventory.add(result.itemId, 1);
-  if (leftover > 0) {
-    console.log("[First-Person Beach] Inventory full");
-    return;
-  }
-  const item = inventory.catalog[result.itemId];
-  console.log(`[First-Person Beach] Collected ${item?.name ?? result.itemId}`);
-  hud.markDirty();
-  palmDebris.impact(result);
-  if (result.felled) palmDebris.fell(result);
-}
-
-const axe = await createBeachAxe(scene, camera, view, collisionWorld, collectFromChop);
-
 function persistBucketFill() {
   const index = inventory.findItem("bucket");
   if (index < 0) return;
@@ -317,7 +299,6 @@ function persistBucketFill() {
 function syncToolEquipment() {
   shovel.setEquipped(shovel.carried && inventory.selectedItemId() === "shovel");
   bucket.setEquipped(bucket.carried && inventory.selectedItemId() === "bucket");
-  axe.setEquipped(axe.carried && inventory.selectedItemId() === "axe");
 }
 
 function fillPlacedBucket() {
@@ -355,6 +336,12 @@ function scoopPileIntoBucket() {
   camera.getWorldDirection(aimDirection);
   const hit = collisionWorld.raycastSurface(aimOrigin, aimDirection, TOOL_AIM_DISTANCE);
   if (!hit || hit.kind !== "terrain") return false;
+  const seaWater = hit.y < WATER_LEVEL - .015;
+  const holeWater = terrainSim.waterDepthAt(hit.x, hit.z);
+  if (seaWater || holeWater >= .048) {
+    if (!collectBucketWater(bucket, terrainSim, hit, WATER_LEVEL)) return false;
+    persistBucketFill(); hud.markDirty(); return true;
+  }
   if (!collisionWorld.canStampTerrain(hit.x, hit.z, SHOVEL_STAMP_RADIUS)) return false;
   const sandId = pileSandId(hit);
   if (bucket.tryScoop(sandId) < 1) return false;
@@ -379,6 +366,14 @@ function scoopPileIntoBucket() {
 
 function moldSandCastle() {
   if (hud.open || !bucket.carried || !bucket.equipped) return false;
+  if (bucket.fillItemId === 'water') {
+    camera.getWorldPosition(aimOrigin); camera.getWorldDirection(aimDirection);
+    const hit = collisionWorld.raycastSurface(aimOrigin, aimDirection, TOOL_AIM_DISTANCE);
+    if (!hit || hit.kind !== 'terrain' || bucket.fill <= 0) return false;
+    if (!pourBucketWater(bucket, terrainSim, hit)) return false;
+    footsteps.pourWater(hit);
+    persistBucketFill(); hud.markDirty(); return true;
+  }
   camera.getWorldPosition(aimOrigin);
   camera.getWorldDirection(aimDirection);
   const hit = collisionWorld.raycastSurface(aimOrigin, aimDirection, TOOL_AIM_DISTANCE);
@@ -403,6 +398,15 @@ function refillHeldBucket() {
 const interactPosition = new THREE.Vector3();
 const aimPreview = createAimPreview(scene);
 const treasures = await createBeachTreasures({ scene, inventory, collisionWorld });
+// Opt-in visual regression scene for the held spade and a poured-water cut.
+if (isBrowserHost() && new URLSearchParams(location.search).get('benchmark') === 'dig') {
+  shovel.interact(); takeTool('shovel'); syncToolEquipment();
+  view.pitch = -.55;
+  const hit = {kind: 'terrain', x: 0, z: -15.8, y: terrainHeight(0,-15.8), forwardX: 0, forwardZ: 1};
+  for (let i=0;i<5;i++) footsteps.dig(hit);
+  terrainSim.waterField.addDepth(hit.x,hit.z,.24);
+  footsteps.pourWater(hit);
+}
 
 function placeTreasure() {
   const item = inventory.selectedItemId();
@@ -428,6 +432,8 @@ function currentAim() {
       valid: ['terrain', 'castle'].includes(hit.kind) && aimOrigin.distanceTo(new THREE.Vector3(hit.x, hit.y, hit.z)) <= 3.5 };
   }
   if (bucket.carried && bucket.equipped) {
+    if (bucket.fillItemId === 'water') return { mode: 'fill', x: hit.x, y: hit.y, z: hit.z,
+      radiusX: .2, radiusZ: .2, yaw, valid: hit.kind === 'terrain' };
     if (bucket.fill < BUCKET_CAPACITY && hit.kind === "terrain" && terrainSim.isSandPile?.(hit.x, hit.z)) {
       const sandId = pileSandId(hit);
       const typeOk = !bucket.fillItemId || bucket.fillItemId === sandId;
@@ -457,18 +463,6 @@ function currentAim() {
       radiusZ: 0.14,
       yaw: 0,
       valid: Boolean(fillId) && bucket.fill < BUCKET_CAPACITY && typeOk,
-    };
-  }
-  if (axe.carried && axe.equipped) {
-    return {
-      mode: "chop",
-      x: hit.x,
-      y: hit.y,
-      z: hit.z,
-      radiusX: 0.2,
-      radiusZ: 0.2,
-      yaw,
-      valid: canAxeHit(hit),
     };
   }
   if (shovel.carried && shovel.equipped) {
@@ -522,10 +516,6 @@ function dropEquippedTool() {
     if (bucket.interact()) inventory.remove("bucket", 1);
     return;
   }
-  if (axe.carried && axe.equipped) {
-    if (axe.interact()) inventory.remove("axe", 1);
-    return;
-  }
 }
 
 function pickUpNearbyTool() {
@@ -544,13 +534,6 @@ function pickUpNearbyTool() {
       take: () => bucket.interact() && takeTool("bucket", persistBucketFill),
     });
   }
-  if (!axe.carried && inventory.canAdd("axe", 1)) {
-    axe.object.getWorldPosition(interactPosition);
-    grounded.push({
-      score: carryableInteractScore(view, interactPosition.x, interactPosition.z),
-      take: () => axe.interact() && takeTool("axe"),
-    });
-  }
   grounded.sort((left, right) => right.score - left.score);
   grounded.find(candidate => candidate.score > -Infinity)?.take();
 }
@@ -562,6 +545,7 @@ const playerInput = createPlayerInput();
 const { keys, look } = playerInput;
 let nativeRequested = true;
 let looking = false;
+let primaryHeld = false;
 let lastPathLabel = "";
 
 const rtxRenderer = new NativeRtxRenderer(renderer, camera, rtx);
@@ -650,6 +634,7 @@ function gameplayActive() {
 function resetPlayerInput() {
   playerInput.reset();
   looking = false;
+  primaryHeld = false;
 }
 function capturePointer() {
   try { canvas.requestPointerLock?.()?.catch?.(() => resetPlayerInput()); }
@@ -661,6 +646,7 @@ canvas.addEventListener('wheel', event => {
   if (!gameplayActive()) return;
   event.preventDefault();
   if (!event.deltaY) return;
+  primaryHeld = false;
   inventory.selectHotbar(nextHotbarSlot(inventory.selectedHotbar, event.deltaY));
   syncToolEquipment();
   hud.markDirty();
@@ -689,8 +675,8 @@ canvas.addEventListener("pointerdown", event => {
     return;
   }
   if (event.button !== 0) return;
+  primaryHeld = true;
   if (bucket.carried && bucket.equipped) scoopPileIntoBucket();
-  else if (axe.carried && axe.equipped) axe.chop();
   else if (shovel.carried && shovel.equipped) shovel.dig();
   looking = true;
   try {
@@ -701,6 +687,7 @@ canvas.addEventListener("pointerdown", event => {
   if (!locked) capturePointer();
 });
 canvas.addEventListener("pointerup", event => {
+  if (event.button === 0) primaryHeld = false;
   hud.handlePointer(event, canvas, {
     pointerLocked: document.pointerLockElement === canvas,
   });
@@ -713,6 +700,7 @@ canvas.addEventListener("pointerup", event => {
   }
 });
 canvas.addEventListener("pointercancel", event => {
+  primaryHeld = false;
   hud.handlePointer(event, canvas, { pointerLocked: false });
   looking = false;
 });
@@ -767,6 +755,7 @@ addEventListener("keydown", event => {
   if (!gameplayActive() && !hud.open) return;
   const hotbar = hotbarIndexFromCode(event.code);
   if (hotbar >= 0) {
+    primaryHeld = false;
     inventory.selectHotbar(hotbar);
     syncToolEquipment();
     hud.markDirty();
@@ -844,18 +833,18 @@ renderer.setAnimationLoop(() => {
   footsteps.update(dt, view);
   syncToolEquipment();
   shovel.update(dt);
+  if (primaryHeld && gameplayActive() && shovel.carried && shovel.equipped && !shovel.digging) shovel.dig();
   bucket.update(dt);
   treasures.update(dt);
   const progress = bucket.progress;
   hud.setBuilderStatus(performanceHud
     ? `${perfFps} FPS · Resolution ${Math.round(adaptiveResolution.scale * 100)}% · ${progress.standing} blocks · F3 close`
     : bucket.carried && bucket.equipped
-      ? `${bucket.moldName} [R] · ${bucket.buildScale}× [Z] · ${bucket.sandCost} sand · ${bucket.gridSnap ? 'Grid' : 'Free'} [G] · Q rotate · F fill`
-      : shovel.carried && shovel.equipped ? `${shovel.modeName} [R] · Left click sculpt · ${progress.xp} XP`
+      ? bucket.fillItemId === 'water' ? `Water ${bucket.fill}/3 · Left click collect water · Right click pour`
+      : `${bucket.moldName} [R] · ${bucket.buildScale}× [Z] · ${bucket.sandCost} sand · ${bucket.gridSnap ? 'Grid' : 'Free'} [G] · Q rotate · F fill`
+      : shovel.carried && shovel.equipped ? `${shovel.modeName} [R] · Hold left click to dig · ${progress.xp} XP`
       : isTreasure(inventory.selectedItemId()) ? `${inventory.catalog[inventory.selectedItemId()].name} · Right click decorate · E pick up`
       : `${progress.rank} · ${progress.xp} XP · ${progress.standing} blocks · E pick up tools or treasures`);
-  axe.update(dt);
-  palmDebris.update(dt);
   aimPreview.update(currentAim());
   digBurst.update(dt);
   hud.sync(renderer);
@@ -927,8 +916,6 @@ addEventListener("beforeunload", () => {
   shovel.dispose();
   bucket.dispose();
   treasures.dispose();
-  axe.dispose();
-  palmDebris.dispose();
   aimPreview.dispose();
   hud.dispose();
   rtxRenderer.dispose();

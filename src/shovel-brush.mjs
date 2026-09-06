@@ -19,6 +19,6 @@ export function sculptSand(field, hit) {
   }
   if (!entries.length) return;
   const mean = entries.reduce((sum,e)=>sum+e.h,0)/entries.length;
-  const strength = hit.toolMode === 'Flatten' ? 0.7 : 0.3;
+  const strength = (hit.toolMode === 'Flatten' ? 0.7 : 0.3) * (hit.strength ?? 1);
   for (const e of entries) field.addAtCell(e.x,e.z,(mean-e.h)*strength);
 }

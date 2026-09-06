@@ -1,7 +1,7 @@
 import { CELL_SIZE, CHUNK_CELLS } from "./sand-chunk-field.mjs";
 import { WATER_LEVEL } from "./terrain.mjs";
 
-const INFILTRATE_RATE = 0.08;
+const INFILTRATE_RATE = 0.002;
 const OCEAN_FILL_RATE = 0.55;
 const SEEP_RATE = 0.15;
 const seepageCursors = new WeakMap();
@@ -41,6 +41,7 @@ function cellRef(field, ix, iz) {
 export function stepSeepage(waterField, sandField, dt, {
   waterLevel = WATER_LEVEL,
   heightAt = null,
+  baseHeightAt = null,
   wetnessAt = null,
   maxCells = 4096,
 } = {}) {
@@ -102,9 +103,13 @@ export function stepSeepage(waterField, sandField, dt, {
           }
           return max;
         };
-        const sea = belowTable && isLikelySeaConnected(center.x, center.z, () => surface, waterLevel, neighborWater);
+        const sea = belowTable && (baseHeightAt
+          ? baseHeightAt(center.x, center.z) < waterLevel
+          : isLikelySeaConnected(center.x, center.z, () => surface, waterLevel, neighborWater));
         if (chunk.water[index] > 1e-5 && !sea) {
-          const soak = Math.min(chunk.water[index], INFILTRATE_RATE * cellDt);
+          // Damp sand absorbs progressively more slowly, allowing a poured
+          // pool to remain visible instead of vanishing within one second.
+          const soak = Math.min(chunk.water[index], INFILTRATE_RATE * cellDt * (1 - wet * .85));
           chunk.water[index] -= soak;
           chunk.wet[index] = Math.min(1, chunk.wet[index] + soak * 2.2);
           changed += soak;
@@ -134,6 +139,10 @@ export function stepSeepage(waterField, sandField, dt, {
             ref.chunk.dirty = true;
             changed += share;
           }
+        }
+        if (Math.abs(previousDepth - chunk.water[index]) > 1e-7) {
+          waterField.markCellDirty?.(ix, iz);
+          for (const [dx,dz] of NEIGHBORS) waterField.markCellDirty?.(ix+dx, iz+dz);
         }
         if ((previousDepth > 0.02) !== (chunk.water[index] > 0.02)
           || Math.abs(previousWet - chunk.wet[index]) > 0.001) {
