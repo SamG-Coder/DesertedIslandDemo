@@ -21,10 +21,20 @@ export function applyBoxProjectedUvs(geometry, metersPerTile = 1) {
   const normal = geometry.getAttribute("normal");
   if (!position || !normal || position.count < 1) return geometry;
   const uv = new Float32Array(position.count * 2);
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  const faceNormal = new THREE.Vector3();
   for (let i = 0; i < position.count; i += 1) {
-    const nx = Math.abs(normal.getX(i));
-    const ny = Math.abs(normal.getY(i));
-    const nz = Math.abs(normal.getZ(i));
+    // Flat projection per triangle prevents a smooth bevel's vertices choosing
+    // different projection axes and stretching the texture across the face.
+    if (!geometry.index && i % 3 === 0) {
+      a.fromBufferAttribute(position, i);
+      b.fromBufferAttribute(position, i + 1).sub(a);
+      c.fromBufferAttribute(position, i + 2).sub(a);
+      faceNormal.crossVectors(b, c).normalize();
+    }
+    const nx = Math.abs(geometry.index ? normal.getX(i) : faceNormal.x);
+    const ny = Math.abs(geometry.index ? normal.getY(i) : faceNormal.y);
+    const nz = Math.abs(geometry.index ? normal.getZ(i) : faceNormal.z);
     const x = position.getX(i);
     const y = position.getY(i);
     const z = position.getZ(i);

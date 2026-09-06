@@ -67,6 +67,8 @@ test("manifest registers a portable WebGPU deserted island", async () => {
     "src/collision-system.mjs",
     "src/carryable-system.mjs",
     "src/shovel-system.mjs",
+    "src/axe-system.mjs",
+    "src/palm-felling.mjs",
     "src/bucket-system.mjs",
     "src/aim-preview.mjs",
     "src/inventory-system.mjs",
@@ -81,6 +83,7 @@ test("manifest registers a portable WebGPU deserted island", async () => {
     "assets/models/red-sand-castle-bucket.glb",
     "assets/models/stackable-sand-castle.glb",
     "assets/models/oak-dining-table.glb",
+    "assets/models/beach-felling-axe.glb",
     "assets/audio/footstep-dry-sand-1.wav",
     "assets/audio/footstep-wet-sand-1.wav",
     "assets/audio/footstep-shallow-water-1.wav",
@@ -124,6 +127,7 @@ test("main wires first-person controls and hybrid RTX lighting without HTML over
   assert.match(main, /createBeachFootstepSystem/);
   assert.match(main, /createBeachCollisionWorld/);
   assert.match(main, /createBeachShovel/);
+  assert.match(main, /createBeachAxe/);
   assert.match(main, /event\.code === "KeyE"/);
   assert.match(main, /event\.code === "Tab"/);
   assert.match(main, /hotbarIndexFromCode/);
@@ -179,7 +183,7 @@ test("main wires first-person controls and hybrid RTX lighting without HTML over
   assert.match(main, /hasNativeRays/);
   assert.match(main, /shovel\.update\(dt\)/);
   assert.match(main, /footsteps\.update\(dt, view\)/);
-  assert.match(main, /jump: hud.open \? false : jumpQueued/);
+  assert.match(main, /playerInput.sample\(gameplayActive\(\)\)/);
   assert.match(main, /camera\.lookAt\(0, 6, -38\)/);
   assert.match(main, /rtxRenderer\.render\(scene, camera/);
   assert.match(main, /warmScenePipelines\(\)/);
@@ -398,7 +402,7 @@ test("Studio-authored palms load as reusable GLB instances", async () => {
     load("index.html"),
   ]);
   assert.match(scene, /GLTFLoader/);
-  assert.match(scene, /realistic-beach-palm\.glb/);
+  assert.match(scene, /blender-coconut-palm\.glb/);
   assert.match(scene, /template\.clone\(true\)/);
   assert.match(scene, /prepareStudioPalm/);
   assert.match(palm, /studioMaterialId/);
@@ -422,6 +426,8 @@ test("Studio oak dining table sits on the beach as a judge desk", async () => {
   ]);
   assert.match(scene, /loadJudgeDesk/);
   assert.match(scene, /placeJudgeDesk/);
+  assert.match(scene, /SHOW_JUDGE_DESK/);
+  assert.match(table, /SHOW_JUDGE_DESK = false/);
   assert.match(table, /oak-dining-table\.glb/);
   assert.match(table, /JUDGE_DESK/);
   assert.match(table, /x: 7\.6/);
@@ -430,6 +436,23 @@ test("Studio oak dining table sits on the beach as a judge desk", async () => {
   assert.doesNotMatch(table, /rtxIgnore/);
   assert.match(collision, /table/);
   assert.match(collision, /desk/);
+});
+
+test("Studio felling axe is a carryable palm-chopping tool", async () => {
+  const [main, axe] = await Promise.all([
+    load("src/main.mjs"),
+    load("src/axe-system.mjs"),
+  ]);
+  assert.match(main, /createBeachAxe/);
+  assert.match(main, /axe\.chop/);
+  assert.match(main, /createPalmDebrisSystem/);
+  assert.match(main, /palmDebris\.fell/);
+  assert.doesNotMatch(main, /if \(result\.felled\) configureNative/);
+  assert.match(axe, /beach-felling-axe\.glb/);
+  assert.match(axe, /canAxeHit/);
+  assert.match(axe, /CHOPS_TO_FELL = 4/);
+  assert.match(axe, /kind === "palm"/);
+  assert.match(axe, /visual\.rotation\.y = Math\.PI/);
 });
 
 test("Studio-authored rock variants replace procedural ball geometry", async () => {

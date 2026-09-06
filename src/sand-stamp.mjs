@@ -1,3 +1,4 @@
+import { shovelBrush, sculptSand } from './shovel-brush.mjs';
 export const SCOOP_VOLUME_HEIGHT = 0.16; // matches current DIG_DEPTH
 export const SHOVEL_RADIUS_X = 0.2;
 export const SHOVEL_RADIUS_Z = 0.26;
@@ -41,10 +42,12 @@ export function pileKernelWeight(localX, localZ, radiusX, radiusZ) {
 }
 
 export function stampDig(field, hit) {
+  if (hit.toolMode === 'Smooth' || hit.toolMode === 'Flatten') return sculptSand(field, hit);
+  const brush = shovelBrush(hit.toolMode);
   return field.stamp(hit.x, hit.z, {
     amount: -SCOOP_VOLUME_HEIGHT,
-    radiusX: SHOVEL_RADIUS_X,
-    radiusZ: SHOVEL_RADIUS_Z,
+    radiusX: brush.radiusX,
+    radiusZ: brush.radiusZ,
     forwardX: hit.forwardX,
     forwardZ: hit.forwardZ,
     peaked: false,

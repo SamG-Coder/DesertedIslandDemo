@@ -9,6 +9,19 @@ import {
 } from "../src/water-seepage.mjs";
 import { WATER_LEVEL } from "../src/terrain.mjs";
 
+test('seepage respects its cell budget and eventually services later chunks', () => {
+  const sand = createSandField({ heightAt: () => 1 });
+  const water = createWaterField(sand);
+  sand.ensureChunk(0, 0).water.fill(0.2);
+  sand.ensureChunk(1, 0).water.fill(0.2);
+  for (let tick = 0; tick < 80; tick++) {
+    let visits = 0;
+    stepSeepage(water, sand, 0.05, { maxCells: 7, wetnessAt: () => { visits++; return 0; } });
+    assert.ok(visits <= 7);
+  }
+  assert.ok(sand.chunks.get('1,0').water[255] < 0.2);
+});
+
 function cellOf(x, z) {
   return {
     ix: Math.floor(x / CELL_SIZE),

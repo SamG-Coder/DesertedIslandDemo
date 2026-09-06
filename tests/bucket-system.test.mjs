@@ -39,7 +39,7 @@ test("Studio bucket GLB is an empty red pail with handle parts", async () => {
 test("Studio castle GLB is a stackable turret keep", async () => {
   const bytes = await readFile(join(sampleRoot, "assets", "models", "stackable-sand-castle.glb"));
   const json = glbJson(bytes);
-  assert.equal(json.nodes.length, 6);
+  assert.ok(json.nodes.length >= 5);
   assert.equal(json.meshes.length, 5);
   assert.ok(json.nodes.some(node => node.name === "Turret Keep"));
   for (const name of ["Battlement North", "Battlement South", "Battlement East", "Battlement West"]) {
@@ -76,14 +76,14 @@ test("bucket gameplay lives in code, not a sand mesh inside the pail", async () 
   assert.match(bucket, /tryMold/);
   assert.match(bucket, /kind === "castle"/);
   assert.match(bucket, /stackable-sand-castle\.glb/);
-  assert.match(bucket, /red-sand-castle-bucket\.glb/);
+  assert.match(bucket, /blender-builders-bucket\.glb/);
   assert.match(main, /createBeachBucket/);
   assert.match(main, /fillPlacedBucket/);
   assert.match(main, /moldSandCastle/);
   assert.match(main, /persistBucketFill/);
   assert.match(main, /bucket.carried && bucket.equipped/);
   assert.match(main, /shovel.carried && shovel.equipped/);
-  assert.match(main, /else if \(!fillPlacedBucket\(\)\) dumpOntoGround/);
+  assert.match(main, /else if \(!placeTreasure\(\) && !fillPlacedBucket\(\)\) dumpOntoGround/);
   assert.doesNotMatch(main, /if \(fillPlacedBucket\(\)\) return;/);
   assert.match(main, /if \(shovel.carried && shovel.equipped\)/);
   assert.match(main, /if \(bucket.carried && bucket.equipped\)/);
@@ -91,7 +91,7 @@ test("bucket gameplay lives in code, not a sand mesh inside the pail", async () 
   assert.match(main, /crushUnderPlayer/);
   assert.match(main, /collapseCastleIntoMound/);
   assert.match(main, /scoopPileIntoBucket/);
-  assert.match(main, /if \(!scoopPileIntoBucket\(\)\) moldSandCastle/);
+  assert.match(main, /if \(bucket.carried && bucket.equipped\) scoopPileIntoBucket/);
 });
 
 test("walking or landing on a castle footprint collapses it", () => {

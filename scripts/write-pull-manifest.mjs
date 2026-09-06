@@ -13,7 +13,7 @@ async function walk(directory, files = []) {
     if (skip.has(entry.name) || entry.name.startsWith(".")) continue;
     const full = path.join(directory, entry.name);
     if (entry.isDirectory()) await walk(full, files);
-    else if (!skipFiles.has(entry.name)) files.push(full);
+    else if (!skipFiles.has(entry.name) && !/\.(blend\d*|log|py)$/.test(entry.name)) files.push(full);
   }
   return files;
 }

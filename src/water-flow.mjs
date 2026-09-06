@@ -5,6 +5,7 @@ import {
   chunkKey,
   worldToCell,
 } from "./sand-chunk-field.mjs";
+import { transportLooseSand } from './sand-transport.mjs';
 
 export const FLOW_RATE = 2.5;
 export const MAX_FLOW_DT = 0.05;
@@ -161,6 +162,7 @@ export function createWaterField(sandField = {}, options = {}) {
     const applied = next - previous;
     if (applied === 0 && delta !== 0) return 0;
     chunk.water[index] = next;
+    if ((previous > 0.02) !== (next > 0.02)) sandField.markCellDirty?.(ix, iz);
     chunk.dirty = true;
     markWaterChunk(chunk);
     enqueue(ix, iz);
@@ -266,6 +268,7 @@ export function createWaterField(sandField = {}, options = {}) {
 
     const deltas = new Map();
     const origins = new Map();
+    const sedimentTransfers = [];
     const acc = (ix, iz, amount, origin) => {
       if (!(Math.abs(amount) > 0)) return;
       const key = cellKey(ix, iz);
@@ -316,10 +319,13 @@ export function createWaterField(sandField = {}, options = {}) {
       if (outgoing <= MIN_DEPTH) continue;
 
       const origin = { ix, iz };
+      const loose = sandField.cellAt?.(ix, iz);
+      const carriesSand = loose && loose.chunk.sand[loose.index] > 0.00001;
       acc(ix, iz, -outgoing, null);
       for (let dir = 0; dir < 4; dir += 1) {
         if (outs[dir] <= 0) continue;
         acc(ix + DIRS[dir][0], iz + DIRS[dir][1], outs[dir], origin);
+        if (carriesSand) sedimentTransfers.push(ix, iz, ix + DIRS[dir][0], iz + DIRS[dir][1], outs[dir]);
       }
     }
 
@@ -330,6 +336,10 @@ export function createWaterField(sandField = {}, options = {}) {
       const ix = Number(key.slice(0, split));
       const iz = Number(key.slice(split + 1));
       moved += Math.abs(addToCell(ix, iz, amount, origins.get(key) ?? null));
+    }
+    for (let i = 0; i < sedimentTransfers.length; i += 5) {
+      moved += transportLooseSand(sandField, sedimentTransfers[i], sedimentTransfers[i + 1],
+        sedimentTransfers[i + 2], sedimentTransfers[i + 3], sedimentTransfers[i + 4]);
     }
     return moved;
   }

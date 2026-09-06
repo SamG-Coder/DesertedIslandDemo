@@ -130,6 +130,7 @@ function mappedPalmMaterial(maps, materialId, profile) {
 }
 
 export function prepareStudioPalm(template, maps) {
+  let sourceMeshCount = 0;
   const materials = new Map(Object.entries(MATERIAL_PROFILES).map(([materialId, profile]) => [
     materialId,
     mappedPalmMaterial(maps, materialId, profile),
@@ -138,6 +139,7 @@ export function prepareStudioPalm(template, maps) {
   template.updateMatrixWorld(true);
   template.traverse(object => {
     if (!object.isMesh) return;
+    sourceMeshCount++;
     const imported = Array.isArray(object.material) ? object.material[0] : object.material;
     const materialId = studioMaterialId(imported);
     if (!materials.has(materialId)) return;
@@ -170,7 +172,7 @@ export function prepareStudioPalm(template, maps) {
     if (MATERIAL_PROFILES[materialId]?.foliage) mesh.userData.rtxIgnore = true;
     mergedPalm.add(mesh);
   }
-  mergedPalm.userData.sourceMeshCount = 205;
+  mergedPalm.userData.sourceMeshCount = sourceMeshCount;
   mergedPalm.userData.mergedMeshCount = mergedPalm.children.length;
   return mergedPalm;
 }

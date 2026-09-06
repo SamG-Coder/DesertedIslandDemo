@@ -53,6 +53,9 @@ export function createBeachCollisionWorld(world) {
   const colliders = [];
   const terrainDepressions = [];
   let simHeightAt = null;
+  const supportRay = new THREE.Raycaster();
+  const down = new THREE.Vector3(0, -1, 0);
+  const supportOrigin = new THREE.Vector3();
   world.dressing?.updateWorldMatrix?.(true, true);
 
   for (const palm of world.palms ?? []) {
@@ -68,6 +71,8 @@ export function createBeachCollisionWorld(world) {
       radius: 0.34 * Math.max(scale.x, scale.z),
       minY: position.y - 0.05,
       maxY: position.y + 10.8 * scale.y,
+      object: palm,
+      chops: 0,
     });
   }
 
@@ -82,6 +87,7 @@ export function createBeachCollisionWorld(world) {
       box,
       minY: box.min.y,
       maxY: box.max.y,
+      object,
     });
   }
 
@@ -120,10 +126,18 @@ export function createBeachCollisionWorld(world) {
       // Palm trunks are walls, not walkable columns. Rock and driftwood tops
       // can support the player after a jump without snapping them upward from
       // ground level merely for approaching the object.
-      if (collider.kind === "palm" || collider.kind === "castle" || collider.shape !== "box") continue;
+      if (collider.kind === "palm" || (collider.kind === "castle" && !collider.walkable) || collider.shape !== "box") continue;
       if (!containsTop(collider.box, x, z, 0.035)) continue;
-      if (collider.maxY > height) {
-        height = collider.maxY;
+      let top = collider.maxY;
+      if (collider.kind === 'castle' && collider.object) {
+        supportOrigin.set(x, collider.maxY + .1, z);
+        supportRay.set(supportOrigin, down);
+        const hit = supportRay.intersectObject(collider.object, false)[0];
+        if (!hit) continue;
+        top = hit.point.y;
+      }
+      if (top > height) {
+        height = top;
         kind = collider.kind;
       }
     }

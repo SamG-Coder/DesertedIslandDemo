@@ -60,6 +60,7 @@ export function createSandField(options = {}) {
   const chunks = new Map();
   const dirtyKeys = new Set();
   const dirtyList = [];
+  let dirtyHead = 0;
 
   function getChunk(cx, cz) {
     return chunks.get(chunkKey(cx, cz)) ?? null;
@@ -176,7 +177,10 @@ export function createSandField(options = {}) {
       chunk.wet[index] = clamp01(chunk.wet[index] + wetAdd);
     }
     markDirty(ix, iz);
-    markCellDirty(ix, iz);
+    // An excavation wakes its rim as well as the cells removed by the shovel.
+    for (let dz = -1; dz <= 1; dz += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) markCellDirty(ix + dx, iz + dz);
+    }
   }
 
   function stamp(x, z, options = {}) {
@@ -287,13 +291,21 @@ export function createSandField(options = {}) {
 
   function takeDirtyCells(maxCells = 256) {
     const budget = Math.max(0, Math.floor(Number(maxCells) || 0));
-    const count = Math.min(budget, dirtyList.length / 2);
+    const count = Math.min(budget, (dirtyList.length - dirtyHead) / 2);
     const taken = [];
     for (let i = 0; i < count; i += 1) {
-      const ix = dirtyList.shift();
-      const iz = dirtyList.shift();
+      const ix = dirtyList[dirtyHead++];
+      const iz = dirtyList[dirtyHead++];
       dirtyKeys.delete(packCell(ix, iz));
       taken.push(ix, iz);
+    }
+    // Amortized compaction avoids moving the entire queue twice per cell.
+    if (dirtyHead === dirtyList.length) {
+      dirtyList.length = 0;
+      dirtyHead = 0;
+    } else if (dirtyHead > 4096 && dirtyHead > dirtyList.length / 2) {
+      dirtyList.splice(0, dirtyHead);
+      dirtyHead = 0;
     }
     return taken;
   }
@@ -346,7 +358,7 @@ export function createSandField(options = {}) {
     cellSurface,
     takeDirtyCells,
     get dirtyCellCount() {
-      return dirtyList.length / 2;
+      return (dirtyList.length - dirtyHead) / 2;
     },
     heightAt,
     dirtyRecords,

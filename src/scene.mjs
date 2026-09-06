@@ -16,7 +16,8 @@ import {
 import { createMoonGlobe, createStarField } from "./sky-cycle.mjs";
 import { prepareStudioPalm } from "./palm-model.mjs";
 import { prepareStudioRockSet } from "./rock-model.mjs";
-import { loadJudgeDesk, placeJudgeDesk } from "./table-model.mjs";
+import { SHOW_JUDGE_DESK, loadJudgeDesk, placeJudgeDesk } from "./table-model.mjs";
+import { markPalmDynamic } from "./palm-felling.mjs";
 import {
   HEIGHT_BOUNDS,
   WATER_LEVEL,
@@ -108,7 +109,7 @@ function preRollFoam(foamField, seconds = 4.2) {
 
 async function loadPalmTemplate(maps) {
   const loader = new GLTFLoader();
-  const url = new URL("../assets/models/realistic-beach-palm.glb", import.meta.url).href;
+  const url = new URL("../assets/models/blender-coconut-palm.glb", import.meta.url).href;
   const gltf = await loader.loadAsync(url);
   return prepareStudioPalm(gltf.scene, maps);
 }
@@ -127,6 +128,7 @@ function addPalm(group, template, x, z, scale, yaw) {
   palm.position.set(x, ground, z);
   palm.rotation.y = yaw;
   palm.scale.setScalar(scale);
+  markPalmDynamic(palm);
   group.add(palm);
   return palm;
 }
@@ -253,7 +255,7 @@ export async function buildBeachScene(scene, maps, renderer) {
   const [palmTemplate, rockTemplates, judgeDesk] = await Promise.all([
     loadPalmTemplate(maps),
     loadRockTemplates(maps),
-    loadJudgeDesk(),
+    SHOW_JUDGE_DESK ? loadJudgeDesk() : Promise.resolve(null),
   ]);
   const palms = [];
   const palmSites = [
@@ -289,7 +291,7 @@ export async function buildBeachScene(scene, maps, renderer) {
   for (let i = 0; i < 6; i += 1) {
     addDriftwood(dressing, maps, -20 + random() * 40, -4 + random() * 10, 1.6 + random() * 1.8, random() * Math.PI);
   }
-  placeJudgeDesk(dressing, judgeDesk);
+  if (judgeDesk) placeJudgeDesk(dressing, judgeDesk);
 
   return {
     sky,

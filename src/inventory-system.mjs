@@ -1,3 +1,4 @@
+import { TREASURES } from './treasure-catalog.mjs';
 export const MAX_STACK = 255;
 export const HOTBAR_SIZE = 9;
 export const STORAGE_COLUMNS = 9;
@@ -7,19 +8,28 @@ export const BUCKET_CAPACITY = 3;
 export const CASTLE_SAND_COST = 3;
 
 export const BEACH_ITEMS = Object.freeze({
+  ...Object.fromEntries(TREASURES.map(item=>[item.id,Object.freeze({id:item.id,name:item.name,
+    maxStack:MAX_STACK,category:'decoration',colors:Object.freeze({top:item.color,left:item.color,right:item.color})})])),
   shovel: Object.freeze({
     id: "shovel",
-    name: "Beach Shovel",
+    name: "Builder's Shovel",
     maxStack: 1,
     category: "tool",
     colors: Object.freeze({ top: "#d7dde4", left: "#8d5b34", right: "#6d4728" }),
   }),
   bucket: Object.freeze({
     id: "bucket",
-    name: "Red Sand Bucket",
+    name: "Builder's Bucket",
     maxStack: 1,
     category: "tool",
-    colors: Object.freeze({ top: "#e2182a", left: "#b41422", right: "#8c101c" }),
+    colors: Object.freeze({ top: "#79b9bc", left: "#43868c", right: "#305f68" }),
+  }),
+  axe: Object.freeze({
+    id: "axe",
+    name: "Felling Axe",
+    maxStack: 1,
+    category: "tool",
+    colors: Object.freeze({ top: "#c5ccd3", left: "#6b4423", right: "#4e3219" }),
   }),
   "dry-sand": Object.freeze({
     id: "dry-sand",
@@ -41,6 +51,13 @@ export const BEACH_ITEMS = Object.freeze({
     maxStack: MAX_STACK,
     category: "block",
     colors: Object.freeze({ top: "#8d8a84", left: "#6c6964", right: "#4c4a46" }),
+  }),
+  "palm-wood": Object.freeze({
+    id: "palm-wood",
+    name: "Palm Wood",
+    maxStack: MAX_STACK,
+    category: "block",
+    colors: Object.freeze({ top: "#c4a06a", left: "#8a5a32", right: "#5c3a20" }),
   }),
 });
 
@@ -74,6 +91,7 @@ export function stackLimit(itemId, catalog = BEACH_ITEMS, maxStack = MAX_STACK) 
 
 export function harvestItemId({ kind, surface } = {}) {
   if (kind === "rock") return "rock";
+  if (kind === "palm" || kind === "wood") return "palm-wood";
   if (kind && kind !== "terrain") return null;
   if (surface === "dry-sand") return "dry-sand";
   if (surface === "wet-sand" || surface === "shallow-water") return "wet-sand";

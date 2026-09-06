@@ -16,7 +16,7 @@ test("browser quality lowers cloud steps, rain, water mesh, and shadow work", as
   assert.match(source, /rainCount: 1800/);
   assert.match(source, /simpleTerrainMaps: true/);
   assert.match(source, /terrainCastShadow: false/);
-  assert.match(source, /pcfSoft: false/);
+  assert.match(source, /pcfSoft: true/);
   assert.match(source, /rasterPixels: 1920 \* 1080/);
   assert.match(source, /rasterPixels: 2560 \* 1440/);
 });

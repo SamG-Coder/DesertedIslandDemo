@@ -24,7 +24,8 @@ const HALO = [
 ];
 const MAX_DT = 0.05;
 const RELAX_RATE = 1.15;
-const MIN_EXCESS = 1e-8;
+// Sub-millimetre slopes should sleep instead of churning Float32 roundoff.
+const MIN_EXCESS = 0.0005;
 
 function clamp01(value) {
   const number = Number(value);
@@ -125,21 +126,34 @@ export function relaxSandRepose(field, dt, {
     for (let i = 0; i < taken.length; i += 2) {
       const ix = taken[i];
       const iz = taken[i + 1];
-      const here = field.cellAt(ix, iz);
+      let here = field.cellAt(ix, iz);
+      if (!here) {
+        // Only materialize an untouched rim when it borders an excavation.
+        const bordersCut = HALO.some(([dx, dz]) => {
+          const ref = field.cellAt(ix + dx, iz + dz);
+          return ref && ref.chunk.sand[ref.index] < -MIN_EXCESS;
+        });
+        if (!bordersCut) continue;
+        field.ensureChunk(Math.floor(ix / chunkCellsOf(field)), Math.floor(iz / chunkCellsOf(field)));
+        here = field.cellAt(ix, iz);
+      }
       if (!here) continue;
       const wet = here.chunk.wet[here.index];
       const depth = here.chunk.water[here.index];
       const maxDh = Math.tan(reposeLimit(wet, depth)) * cellSizeOf(field);
       let h = here.chunk.base[here.index] + here.chunk.sand[here.index];
-      if (Math.abs(here.chunk.sand[here.index]) < 1e-5) continue;
-      for (const [dx, dz] of NEIGHBORS) {
+      let changed = false;
+      for (const [dx, dz] of HALO) {
         const nix = ix + dx;
         const niz = iz + dz;
         let neighbor = field.cellAt(nix, niz);
         const hn = neighbor
           ? neighbor.chunk.base[neighbor.index] + neighbor.chunk.sand[neighbor.index]
           : field.cellSurface(nix, niz);
-        const excess = h - hn - maxDh;
+        // Do not erode the authored landscape unless this pair is disturbed.
+        if (Math.abs(here.chunk.sand[here.index]) < MIN_EXCESS
+          && (!neighbor || Math.abs(neighbor.chunk.sand[neighbor.index]) < MIN_EXCESS)) continue;
+        const excess = h - hn - maxDh * (dx && dz ? Math.SQRT2 : 1);
         if (excess <= MIN_EXCESS) continue;
         if (!neighbor) {
           field.ensureChunk(Math.floor(nix / chunkCellsOf(field)), Math.floor(niz / chunkCellsOf(field)));
@@ -150,10 +164,15 @@ export function relaxSandRepose(field, dt, {
         here.chunk.sand[here.index] -= transfer;
         neighbor.chunk.sand[neighbor.index] += transfer;
         h -= transfer;
+        changed = true;
+        field.markDirty(ix, iz);
+        field.markDirty(nix, niz);
         field.markCellDirty(nix, niz);
+        // A lowered donor can destabilize a previously sleeping uphill cell.
+        for (const [hx, hz] of HALO) field.markCellDirty(ix + hx, iz + hz);
         moved += transfer;
       }
-      if (Math.abs(here.chunk.sand[here.index]) > 1e-4) field.markCellDirty(ix, iz);
+      if (changed) field.markCellDirty(ix, iz);
     }
     return moved;
   }

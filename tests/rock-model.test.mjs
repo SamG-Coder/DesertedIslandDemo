@@ -15,14 +15,16 @@ function glbJson(bytes) {
 test("Studio rock GLB contains three mapped, non-spherical silhouettes", async () => {
   const bytes = await readFile(join(sampleRoot, "assets", "models", "coastal-rock-set.glb"));
   const json = glbJson(bytes);
-  assert.deepEqual(json.meshes.map(mesh => mesh.name), [
+  const names = [
     "Wave Worn Slab",
     "Fractured Boulder",
     "Embedded Shore Wedge",
-  ]);
+  ];
+  assert.deepEqual(json.meshes.map(mesh => mesh.name).sort(), [...names].sort());
   assert.equal(json.meshes.length, 3);
 
-  const dimensions = json.meshes.map(mesh => {
+  const dimensions = names.map(name => {
+    const mesh = json.meshes.find(mesh => mesh.name === name);
     const primitive = mesh.primitives[0];
     assert.ok(Number.isInteger(primitive.attributes.POSITION));
     assert.ok(Number.isInteger(primitive.attributes.NORMAL));
@@ -35,4 +37,3 @@ test("Studio rock GLB contains three mapped, non-spherical silhouettes", async (
   assert.ok(dimensions[1][2] > dimensions[1][0] * 0.7, "boulder should be visibly tall");
   assert.ok(dimensions[2][0] > dimensions[2][2] * 1.7, "shore wedge should be visibly broad");
 });
-

@@ -299,11 +299,35 @@ export function pointerToHud(event, element, cssWidth, cssHeight) {
   };
 }
 
+function paintTreasure(ctx, item, size) {
+  ctx.save();
+  ctx.scale(size, size);
+  ctx.fillStyle = item.colors.top;
+  ctx.strokeStyle = item.id.includes('seaweed') ? item.colors.top : '#765640';
+  ctx.lineWidth = .025;
+  if (item.id.includes('seaweed')) {
+    for (let i = 0; i < 4; i++) {
+      const x = .24 + i * .16;
+      ctx.beginPath(); ctx.moveTo(.5, .85);
+      ctx.bezierCurveTo(x - .25, .5, x + .25, .4, x, .12);
+      ctx.lineWidth = .055; ctx.stroke();
+    }
+  } else {
+    ctx.beginPath();ctx.moveTo(.5,.83);
+    ctx.bezierCurveTo(-.12,.4,.16,.06,.5,.16);
+    ctx.bezierCurveTo(.84,.06,1.12,.4,.5,.83);ctx.fill();ctx.stroke();
+    for (let i = 0; i < 7; i++) {
+      ctx.beginPath();ctx.moveTo(.5,.78);ctx.lineTo(.22+i*.093,.28+Math.abs(i-3)*.032);ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
 function paintBucket(ctx, x, y, size) {
   const s = size;
   ctx.save();
   ctx.translate(x + s / 2, y + s * 0.58);
-  ctx.fillStyle = "#e2182a";
+  ctx.fillStyle = "#43868c";
   ctx.beginPath();
   ctx.moveTo(-s * 0.22, -s * 0.2);
   ctx.lineTo(s * 0.22, -s * 0.2);
@@ -311,7 +335,7 @@ function paintBucket(ctx, x, y, size) {
   ctx.lineTo(-s * 0.155, s * 0.2);
   ctx.closePath();
   ctx.fill();
-  ctx.strokeStyle = "#f0c000";
+  ctx.strokeStyle = "#bdc5c4";
   ctx.lineWidth = Math.max(2, s * 0.05);
   ctx.beginPath();
   ctx.arc(0, -s * 0.2, s * 0.2, Math.PI, 0, true);
@@ -490,6 +514,7 @@ export function createInventoryHud({
   let lastSelected = -1;
   let lastCursorKey = "";
   let lastCaptionKey = "";
+  let builderStatus = "";
   let lastOpen = false;
   let slotKeys = [];
   let pendingCssRects = [];
@@ -550,6 +575,7 @@ export function createInventoryHud({
     const iconCtx = baked.getContext("2d");
     if (item.id === "bucket") paintBucket(iconCtx, 0, 0, pixels);
     else if (item.category === "tool") paintShovel(iconCtx, 0, 0, pixels);
+    else if (item.category === 'decoration') paintTreasure(iconCtx, item, pixels);
     else paintIsoCube(iconCtx, 0, 0, pixels, item.colors, itemImage(item.id));
     iconCache.set(key, baked);
     return baked;
@@ -628,6 +654,8 @@ export function createInventoryHud({
   function paintCaption(text, cx, cy) {
     if (!text) return;
     ctx.font = `600 ${Math.max(11, Math.round(13 * layout.scale))}px "Segoe UI", "Helvetica Neue", sans-serif`;
+    const available = Math.max(60, atlasRect.width - 28 * layout.scale);
+    while (text.length > 3 && ctx.measureText(text).width > available) text = text.slice(0, -2);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     const width = ctx.measureText(text).width + 18 * layout.scale;
@@ -700,7 +728,7 @@ export function createInventoryHud({
   }
 
   function paintCaptions() {
-    if (!open) paintCaption(hoveredName(), cssWidth / 2, layout.captionY);
+    if (!open) paintCaption(builderStatus || hoveredName(), cssWidth / 2, layout.captionY);
     else if (hoverIndex >= 0 && isEmptySlot(inventory.cursor)) {
       const rect = layout.slots.find(slot => slot.index === hoverIndex);
       if (rect) paintCaption(hoveredName(), rect.x + rect.size / 2, rect.y - 14 * layout.scale);
@@ -916,6 +944,11 @@ export function createInventoryHud({
       return hoverIndex;
     },
     markDirty,
+    setBuilderStatus(text) {
+      if (text === builderStatus) return;
+      builderStatus = text;
+      if (!open) markDirtyRect(captionDirtyRect());
+    },
     resize(width, height, nextPixelRatio = 1) {
       cssWidth = Math.max(1, Math.round(width));
       cssHeight = Math.max(1, Math.round(height));

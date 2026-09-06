@@ -93,6 +93,42 @@
       "bytes": 0
     },
     {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/models/beach-collectibles.glb",
+      "path": "assets/models/beach-collectibles.glb",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/models/beach-felling-axe.glb",
+      "path": "assets/models/beach-felling-axe.glb",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/models/blender-builder-shovel.glb",
+      "path": "assets/models/blender-builder-shovel.glb",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/models/blender-builders-bucket.glb",
+      "path": "assets/models/blender-builders-bucket.glb",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/models/blender-coconut-palm.glb",
+      "path": "assets/models/blender-coconut-palm.glb",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/models/castle-mould-library.glb",
+      "path": "assets/models/castle-mould-library.glb",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
       "url": "https://deserted-island.runtime.threebrowser.local/assets/models/coastal-rock-set.glb",
       "path": "assets/models/coastal-rock-set.glb",
       "type": "asset",
@@ -119,6 +155,18 @@
     {
       "url": "https://deserted-island.runtime.threebrowser.local/assets/models/red-sand-castle-bucket.glb",
       "path": "assets/models/red-sand-castle-bucket.glb",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/models/sandcastle-gate.glb",
+      "path": "assets/models/sandcastle-gate.glb",
+      "type": "asset",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/assets/models/sandcastle-wall.glb",
+      "path": "assets/models/sandcastle-wall.glb",
       "type": "asset",
       "bytes": 0
     },
@@ -309,6 +357,12 @@
       "bytes": 0
     },
     {
+      "url": "https://deserted-island.runtime.threebrowser.local/scripts/benchmark-sand.mjs",
+      "path": "scripts/benchmark-sand.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
       "url": "https://deserted-island.runtime.threebrowser.local/scripts/verify-pages-build.mjs",
       "path": "scripts/verify-pages-build.mjs",
       "type": "module",
@@ -327,6 +381,12 @@
       "bytes": 0
     },
     {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/adaptive-resolution.mjs",
+      "path": "src/adaptive-resolution.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
       "url": "https://deserted-island.runtime.threebrowser.local/src/aim-preview.mjs",
       "path": "src/aim-preview.mjs",
       "type": "module",
@@ -339,14 +399,38 @@
       "bytes": 0
     },
     {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/axe-system.mjs",
+      "path": "src/axe-system.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/beach-treasures.mjs",
+      "path": "src/beach-treasures.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
       "url": "https://deserted-island.runtime.threebrowser.local/src/bucket-system.mjs",
       "path": "src/bucket-system.mjs",
       "type": "module",
       "bytes": 0
     },
     {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/building-kit.mjs",
+      "path": "src/building-kit.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
       "url": "https://deserted-island.runtime.threebrowser.local/src/carryable-system.mjs",
       "path": "src/carryable-system.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/castle-physics.mjs",
+      "path": "src/castle-physics.mjs",
       "type": "module",
       "bytes": 0
     },
@@ -423,8 +507,26 @@
       "bytes": 0
     },
     {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/ocean-waves.mjs",
+      "path": "src/ocean-waves.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/palm-felling.mjs",
+      "path": "src/palm-felling.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
       "url": "https://deserted-island.runtime.threebrowser.local/src/palm-model.mjs",
       "path": "src/palm-model.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/player-input.mjs",
+      "path": "src/player-input.mjs",
       "type": "module",
       "bytes": 0
     },
@@ -465,8 +567,20 @@
       "bytes": 0
     },
     {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/sand-transport.mjs",
+      "path": "src/sand-transport.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
       "url": "https://deserted-island.runtime.threebrowser.local/src/scene.mjs",
       "path": "src/scene.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/shovel-brush.mjs",
+      "path": "src/shovel-brush.mjs",
       "type": "module",
       "bytes": 0
     },
@@ -519,6 +633,12 @@
       "bytes": 0
     },
     {
+      "url": "https://deserted-island.runtime.threebrowser.local/src/treasure-catalog.mjs",
+      "path": "src/treasure-catalog.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
       "url": "https://deserted-island.runtime.threebrowser.local/src/water-flow.mjs",
       "path": "src/water-flow.mjs",
       "type": "module",
@@ -549,8 +669,32 @@
       "bytes": 0
     },
     {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/axe-system.test.mjs",
+      "path": "tests/axe-system.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/beach-expansion.test.mjs",
+      "path": "tests/beach-expansion.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
       "url": "https://deserted-island.runtime.threebrowser.local/tests/bucket-system.test.mjs",
       "path": "tests/bucket-system.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/castle-integration.test.mjs",
+      "path": "tests/castle-integration.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/castle-physics.test.mjs",
+      "path": "tests/castle-physics.test.mjs",
       "type": "module",
       "bytes": 0
     },
@@ -603,8 +747,20 @@
       "bytes": 0
     },
     {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/palm-felling.test.mjs",
+      "path": "tests/palm-felling.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
       "url": "https://deserted-island.runtime.threebrowser.local/tests/palm-model.test.mjs",
       "path": "tests/palm-model.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/player-input.test.mjs",
+      "path": "tests/player-input.test.mjs",
       "type": "module",
       "bytes": 0
     },
@@ -641,6 +797,12 @@
     {
       "url": "https://deserted-island.runtime.threebrowser.local/tests/sand-stamp.test.mjs",
       "path": "tests/sand-stamp.test.mjs",
+      "type": "module",
+      "bytes": 0
+    },
+    {
+      "url": "https://deserted-island.runtime.threebrowser.local/tests/sand-transport.test.mjs",
+      "path": "tests/sand-transport.test.mjs",
       "type": "module",
       "bytes": 0
     },

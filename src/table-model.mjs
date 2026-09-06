@@ -3,6 +3,8 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { terrainHeight } from "./terrain.mjs";
 
 /** Dry terrace east of spawn, facing the ocean, clear of tools and palms. */
+export const SHOW_JUDGE_DESK = false;
+
 export const JUDGE_DESK = Object.freeze({
   x: 7.6,
   z: -11.2,

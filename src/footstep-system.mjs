@@ -533,6 +533,7 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
   let maskCentreZ = 0;
   let maskDirty = true;
   let simMeshCool = 0;
+  let simMeshPending = false;
 
   function editedSandAt(x, z) {
     return Number(terrainSim?.sandAt?.(x, z)) || 0;
@@ -666,9 +667,9 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
     }
     let record = digs.records.find(candidate => candidate.active
       && Math.hypot(candidate.x - x, candidate.z - z) < EDIT_MERGE_DISTANCE);
-    const stampRadius = amount > 0 ? DUMP_RADIUS : Math.max(DIG_RADIUS_X, DIG_RADIUS_Z);
+      const stampRadius = amount > 0 ? DUMP_RADIUS : hit.toolMode && hit.toolMode !== 'Dig' ? 0.8 : Math.max(DIG_RADIUS_X, DIG_RADIUS_Z);
     if (record) {
-      record.amount += amount;
+      record.amount = terrainSim ? terrainSim.heightAt(record.x, record.z) - terrainHeight(record.x, record.z) : record.amount + amount;
       record.rimHeight = terrainHeight(record.x, record.z);
       record.radiusX = Math.max(Number(record.radiusX) || 0, stampRadius);
       record.radiusZ = Math.max(Number(record.radiusZ) || 0, stampRadius);
@@ -686,7 +687,7 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
       record.rightX = record.forwardZ;
       record.rightZ = -record.forwardX;
       record.rimHeight = terrainHeight(x, z);
-      record.amount = amount;
+      record.amount = terrainSim ? terrainSim.heightAt(x, z) - terrainHeight(x, z) : amount;
       record.waterDepth = 0;
       record.radiusX = stampRadius;
       record.radiusZ = stampRadius;
@@ -866,10 +867,12 @@ export function createBeachFootstepSystem(scene, world, surfaceWater = null, col
     update(dt, view) {
       if (terrainSim) {
         const moved = terrainSim.update(dt) || 0;
+        simMeshPending ||= moved > 0.000001;
         simMeshCool -= dt;
-        if (moved > 0.01 && simMeshCool <= 0) {
+        if (simMeshPending && simMeshCool <= 0) {
           rebuildTerrainGeometry();
           simMeshCool = 0.12;
+          simMeshPending = false;
         }
       }
       updateImpressions(dt, view);

@@ -72,3 +72,44 @@ test("dt=0 does nothing", () => {
     assert.deepEqual(Array.from(after[i]), Array.from(before[i]));
   }
 });
+
+test("a dig at a chunk boundary collapses its untouched rim and conserves volume", () => {
+  const field = createSandField({ baseHeight: 0 });
+  field.addAtCell(15, 15, -1.5);
+  const before = totalSand(field);
+  for (let i = 0; i < 100; i++) relaxSandRepose(field, 0.05);
+  assert.ok(field.cellAt(16, 15).chunk.sand[field.cellAt(16, 15).index] < -0.01);
+  assert.ok(field.cellAt(15, 15).chunk.sand[255] > -1.5);
+  assert.ok(Math.abs(totalSand(field) - before) < 0.00001);
+});
+
+test("stable deposits sleep, then wake when their supporting neighbor is dug", () => {
+  const field = createSandField({ baseHeight: 0 });
+  field.addAtCell(8, 8, 0.05);
+  relaxSandRepose(field, 0.05);
+  assert.equal(field.dirtyCellCount, 0);
+  const before = field.cellSurface(8, 8);
+  field.addAtCell(9, 8, -1);
+  relaxSandRepose(field, 0.05);
+  assert.ok(field.cellSurface(8, 8) < before);
+});
+
+test("a pile reaches rest instead of retaining an endless simulation queue", () => {
+  const field = createSandField({ baseHeight: 0 });
+  field.addAtCell(8, 8, 2);
+  let steps = 0;
+  while (field.dirtyCellCount && steps++ < 3000) relaxSandRepose(field, 0.05);
+  assert.equal(field.dirtyCellCount, 0);
+  assert.ok(Math.abs(totalSand(field) - 2) < 0.00001);
+});
+
+test("damp sand retains a steeper peak than submerged sand", () => {
+  const peak = water => {
+    const field = createSandField({ baseHeight: 0 });
+    field.addAtCell(8, 8, 2, 1);
+    field.forEachChunk(chunk => chunk.water.fill(water));
+    for (let i = 0; i < 100; i++) relaxSandRepose(field, 0.05);
+    return field.cellSurface(8, 8);
+  };
+  assert.ok(peak(0) > peak(1));
+});

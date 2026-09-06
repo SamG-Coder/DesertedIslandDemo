@@ -85,8 +85,8 @@ export function sampleSkyCycle(hours) {
 
   const sunIntensity = 4.4 * Math.pow(sunHeight, 1.15);
   const moonIntensity = 0.42 * moonHeight * (0.35 + night * 0.65);
-  const hemiIntensity = lerp(0.12, 1.35, day);
-  const bounceIntensity = lerp(0.03, 0.28, day);
+  const hemiIntensity = lerp(0.12, 0.72, day);
+  const bounceIntensity = lerp(0.03, 0.16, day);
   const envIntensity = lerp(0.04, 0.62, day);
   const exposure = lerp(0.82, 1.12, day);
   const shadowStrength = lerp(0.06, 0.26, day);

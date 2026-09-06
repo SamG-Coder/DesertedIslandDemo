@@ -57,9 +57,9 @@ function smoothstepNumber(edge0, edge1, value) {
   return t * t * (3 - 2 * t);
 }
 
-/** Slow autonomous weather cycle. It starts stormy so rain is visible immediately. */
+/** Slow autonomous weather cycle, opening in a break between coastal showers. */
 export function stormEnvelope(seconds) {
-  const carrier = 0.5 + 0.5 * Math.sin(seconds * 0.018 + 1.2);
+  const carrier = 0.5 + 0.5 * Math.sin(seconds * 0.018 - 1.2);
   const variation = 0.5 + 0.5 * Math.sin(seconds * 0.0061 + 0.35);
   return smoothstepNumber(0.24, 0.78, carrier * 0.78 + variation * 0.22);
 }
@@ -121,7 +121,7 @@ function cloudDensityNode(point) {
   const anvil = float(1).sub(smoothstep(0.76, 1, height))
     .mul(mix(0.76, 1, stormAmount));
   const verticalProfile = flatRainBase.mul(softTops).mul(anvil);
-  const threshold = float(0.49).sub(stormAmount.mul(0.14));
+  const threshold = float(0.59).sub(stormAmount.mul(0.24));
   const body = smoothstep(threshold, threshold.add(0.16), shape);
   const wispyErosion = smoothstep(0.12, 0.88, erosion.add(body.mul(0.7)));
 
@@ -400,7 +400,7 @@ export function createBeachWeather(scene, camera, world) {
       if (world?.lights?.hemi) world.lights.hemi.intensity *= 1 - cloudShadow * 0.34;
       if (world?.lights?.bounce) world.lights.bounce.intensity *= 1 - cloudShadow * 0.46;
       scene.environmentIntensity = Math.max(0.08, (0.18 + (sky?.day ?? 1) * 0.44) * (1 - cloudShadow * 0.48));
-      if (scene.fog?.isFogExp2) scene.fog.density = 0.0088 + localRain * 0.0075;
+      if (scene.fog?.isFogExp2) scene.fog.density = 0.0035 + localRain * 0.0128;
       return { storm, localRain, cloudShadow };
     },
     dispose() {

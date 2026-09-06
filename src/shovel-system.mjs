@@ -3,6 +3,7 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { createCarryableObject } from "./carryable-system.mjs";
 import { TOOL_AIM_DISTANCE } from "./collision-system.mjs";
 import { SHOVEL_STAMP_RADIUS } from "./sand-stamp.mjs";
+import { SHOVEL_MODES, shovelBrush } from './shovel-brush.mjs';
 
 const READY_POSITION = new THREE.Vector3(-0.58, 0.06, -0.68);
 const READY_ROTATION = new THREE.Euler(-0.18, 0.12, -2.02, "XYZ");
@@ -33,7 +34,7 @@ export function canShovelHit(hit, collisionWorld) {
   return !collisionWorld?.solidAt?.(hit.x, hit.z, SHOVEL_STAMP_RADIUS);
 }
 
-function createDigAnimation(object, camera, collisionWorld, isCarried, onDig) {
+function createDigAnimation(object, camera, collisionWorld, isCarried, onDig, getMode) {
   const startPosition = new THREE.Vector3();
   const phaseStartPosition = new THREE.Vector3();
   const readyPosition = new THREE.Vector3();
@@ -49,6 +50,7 @@ function createDigAnimation(object, camera, collisionWorld, isCarried, onDig) {
   let phase = "idle";
   let phaseTime = 0;
   let targetKind = "terrain";
+  let targetMode = 'Dig';
 
   function poseBetween(fromPosition, toPosition, fromRotation, toRotation, alpha) {
     object.position.lerpVectors(fromPosition, toPosition, alpha);
@@ -86,6 +88,7 @@ function createDigAnimation(object, camera, collisionWorld, isCarried, onDig) {
       startRotation.copy(object.quaternion);
       targetWorld.set(aimedContact.x, aimedContact.y, aimedContact.z);
       targetKind = aimedContact.kind;
+      targetMode = getMode();
       phase = "windup";
       phaseTime = 0;
       return true;
@@ -130,6 +133,7 @@ function createDigAnimation(object, camera, collisionWorld, isCarried, onDig) {
               forwardX: aimDirection.x / horizontalLength,
               forwardZ: aimDirection.z / horizontalLength,
               kind: targetKind,
+              toolMode: targetMode,
             });
           }
           if (targetKind === "terrain") beginPhase("shoulder");
@@ -161,7 +165,7 @@ function createDigAnimation(object, camera, collisionWorld, isCarried, onDig) {
 
 export async function createBeachShovel(scene, camera, view, collisionWorld, onDig = null) {
   const loader = new GLTFLoader();
-  const url = new URL("../assets/models/detailed-beach-shovel.glb", import.meta.url).href;
+  const url = new URL("../assets/models/blender-builder-shovel.glb", import.meta.url).href;
   const gltf = await loader.loadAsync(url);
   const anchor = new THREE.Group();
   anchor.name = "Carryable detailed beach shovel";
@@ -198,12 +202,14 @@ export async function createBeachShovel(scene, camera, view, collisionWorld, onD
     label: "shovel",
   });
   let equipped = true;
+  let mode = 0;
   const digAnimation = createDigAnimation(
     anchor,
     camera,
     collisionWorld,
     () => carryable.carried && equipped,
     onDig,
+    () => SHOVEL_MODES[mode],
   );
   return {
     object: carryable.object,
@@ -216,6 +222,9 @@ export async function createBeachShovel(scene, camera, view, collisionWorld, onD
     get digging() {
       return digAnimation.active;
     },
+    get modeName() { return SHOVEL_MODES[mode]; },
+    get brush() { return shovelBrush(SHOVEL_MODES[mode]); },
+    cycleMode() { if (!digAnimation.active) mode = (mode + 1) % SHOVEL_MODES.length; },
     setEquipped(value) {
       equipped = Boolean(value);
       if (carryable.carried) {

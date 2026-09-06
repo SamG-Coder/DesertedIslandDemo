@@ -23,6 +23,7 @@ export function previewColor(mode, valid) {
   if (!valid) return BLOCKED;
   if (mode === "fill") return FILL;
   if (mode === "castle") return CASTLE;
+  if (mode === "chop") return 0xc4a06a;
   return VALID;
 }
 
@@ -45,6 +46,11 @@ export function createAimPreview(scene) {
   disc.userData.rtxIgnore = true;
   ring.userData.rtxIgnore = true;
   group.add(disc, ring);
+  const ghostGeometry = new THREE.BufferGeometry();
+  const ghost = new THREE.Mesh(ghostGeometry, makeOverlayMaterial(CASTLE, 0.3));
+  ghost.userData.rtxIgnore = true;
+  ghost.visible = false;
+  group.add(ghost);
   scene.add(group);
 
   function hide() {
@@ -70,6 +76,13 @@ export function createAimPreview(scene) {
       group.position.set(aim.x, y, aim.z);
       group.rotation.y = yaw;
       group.visible = true;
+      ghost.visible = Boolean(aim.geometry);
+      if (aim.geometry) {
+        ghost.geometry = aim.geometry;
+        ghost.scale.setScalar(aim.scale ?? 1);
+        ghost.position.y = -(aim.geometry.boundingBox?.min.y ?? 0) * (aim.scale ?? 1);
+        ghost.material.color.setHex(color);
+      }
     },
     hide,
     dispose() {
@@ -78,6 +91,8 @@ export function createAimPreview(scene) {
       ring.geometry.dispose();
       disc.material.dispose();
       ring.material.dispose();
+      ghostGeometry.dispose();
+      ghost.material.dispose();
     },
   };
 }

@@ -6,6 +6,7 @@ import {
   cameraViewMatrix,
   cos,
   dot,
+  exp,
   float,
   floor,
   fwidth,
@@ -17,6 +18,7 @@ import {
   mx_noise_float,
   mx_worley_noise_vec2,
   normalMap,
+  normalView,
   normalWorld,
   normalize,
   positionLocal,
@@ -36,6 +38,7 @@ import { HEIGHT_BOUNDS, WATER_LEVEL } from "./terrain.mjs";
 import { loadTextureAsync, mapPool, reportProgress, yieldToBrowser } from "./async-load.mjs";
 import { QUALITY } from "./quality.mjs";
 import { cloudShadowNode } from "./weather.mjs";
+import { OCEAN_WAVES as WAVES } from "./ocean-waves.mjs";
 export const waterTime = uniform(0);
 export const waterLevel = uniform(WATER_LEVEL);
 export const skySunDirection = uniform(new THREE.Vector3(-0.42, 0.46, 0.78).normalize());
@@ -56,14 +59,6 @@ export const TILE_NAMES = Object.freeze([
   "dune-grass",
   "palm-bark",
   "palm-leaf",
-]);
-
-const WAVES = Object.freeze([
-  { x: 0.94, z: 0.34, frequency: 0.42, speed: 0.78, amplitude: 0.20, chop: 0.55 },
-  { x: -0.31, z: 0.95, frequency: 0.76, speed: -0.64, amplitude: 0.11, chop: 0.42 },
-  { x: 0.62, z: -0.78, frequency: 1.28, speed: 0.96, amplitude: 0.055, chop: 0.28 },
-  { x: -0.82, z: -0.56, frequency: 2.15, speed: -1.22, amplitude: 0.028, chop: 0.18 },
-  { x: 0.22, z: -0.97, frequency: 3.85, speed: 1.64, amplitude: 0.012, chop: 0.10 },
 ]);
 
 function tag(material, reflectionMask, extras = {}) {
@@ -201,7 +196,13 @@ function terrainVariation(point) {
 }
 
 function sampleVariedRgb(map, baseUv, point, variation, cells = 0.086) {
-  if (QUALITY.simpleTerrainMaps) return texture(map, baseUv).rgb;
+  if (QUALITY.simpleTerrainMaps) {
+    // A second continuous, differently oriented sample breaks obvious tiling
+    // without the native path's many per-fragment stochastic noise evaluations.
+    const detail = texture(map, baseUv).rgb;
+    const broadUv = vec2(baseUv.y.negate(), baseUv.x).mul(0.31).add(vec2(0.37, 0.19));
+    return mix(detail, texture(map, broadUv).rgb, 0.24);
+  }
   const uvA = stochasticUv(baseUv, point, cells, 1.0);
   const uvB = stochasticUv(baseUv, point.add(vec3(7.2, 0, -5.8)), cells * 0.83, 4.6);
   const uvC = stochasticUv(baseUv.mul(0.91), point.add(vec3(-4.1, 0, 9.3)), cells * 1.17, 8.2);
@@ -455,6 +456,17 @@ export function breakingInjectionNode(point, heightMap = null) {
 }
 
 function foamLaceNode(mass, age, parcel, live) {
+  if (QUALITY.simpleTerrainMaps) {
+    // Browser foam retains advected cellular holes using one cellular sample,
+    // instead of three cellular layers plus several fractal noise evaluations.
+    const cells = mx_worley_noise_vec2(parcel.mul(vec2(0.27, 0.232)), 0.9);
+    const ridge = saturate(cells.y.sub(cells.x).mul(3.9));
+    const young = float(1).sub(smoothstep(0.02, 0.42, age));
+    const lace = mix(ridge, float(1), young.mul(0.55));
+    const detail = saturate(mass.mul(mix(1.12, 0.48, age)).add(live.mul(0.28))).mul(lace);
+    const footprint = fwidth(parcel.x).max(fwidth(parcel.y));
+    return mix(detail, saturate(mass.mul(0.52)), smoothstep(0.08, 0.62, footprint));
+  }
   const warpA = mx_noise_float(vec3(parcel.x.mul(0.052), 0.4, parcel.y.mul(0.047))).mul(0.9);
   const warpB = mx_noise_float(vec3(parcel.y.mul(0.108), 1.6, parcel.x.mul(0.09))).mul(0.38);
   const warped = parcel.add(vec2(warpA, warpA.mul(-0.64).add(warpB)));
@@ -536,8 +548,8 @@ function shoreWetness(point, ground, waves) {
 }
 
 export function createBeachTerrainMaterial(maps, heightMap) {
-  const dryUv = worldUv(0.24);
-  const wetUv = worldUv(0.30);
+  const dryUv = worldUv(0.65);
+  const wetUv = worldUv(0.75);
   const pebbleUv = worldUv(0.22);
   const grassUv = worldUv(0.18);
   const point = positionWorld;
@@ -552,21 +564,36 @@ export function createBeachTerrainMaterial(maps, heightMap) {
   const wetAlbedo = sampleVariedRgb(maps["wet-sand"].albedo, wetUv, point, variation);
   const pebbleAlbedo = sampleVariedRgb(maps["pebble-hash"].albedo, pebbleUv, point, variation, 0.15);
   const grassAlbedo = sampleVariedRgb(maps["dune-grass"].albedo, grassUv, point, variation);
-  const dryNormal = sampleVariedNormal(maps["dry-sand"].normal, dryUv, point, variation, 0.85);
-  const wetNormal = sampleVariedNormal(maps["wet-sand"].normal, wetUv, point, variation, 1.15);
+  const dryNormal = sampleVariedNormal(maps["dry-sand"].normal, dryUv, point, variation, 0.38);
+  const wetNormal = sampleVariedNormal(maps["wet-sand"].normal, wetUv, point, variation, 0.22);
   const pebbleNormal = sampleVariedNormal(maps["pebble-hash"].normal, pebbleUv, point, variation, 1.35, 0.15);
   const grassNormal = sampleVariedNormal(maps["dune-grass"].normal, grassUv, point, variation, 0.7);
   let albedo = mix(dryAlbedo, grassAlbedo, grassW);
   albedo = mix(albedo, wetAlbedo.mul(0.82), wetness);
   albedo = mix(albedo, pebbleAlbedo, pebbleW);
   albedo = albedo.mul(variation.darken);
+  // Small wind ripples fade with distance and disappear under wet compacted sand.
+  const distance = length(cameraPosition.sub(point));
+  const closeDetail = float(1).sub(smoothstep(8, 28, distance));
+  const ripplePhase = point.x.mul(22).add(point.z.mul(8))
+    .add(sin(point.z.mul(1.7)).mul(1.2)).add(variation.patch.mul(4));
+  const rippleSlope = cos(ripplePhase).mul(0.0015)
+    .mul(closeDetail).mul(float(1).sub(wetness)).mul(float(1).sub(grassW.max(pebbleW)));
+  const fineGrain = texture(maps["dry-sand"].normal, worldUv(3.6)).rgb;
   let mappedNormal = mix(dryNormal, grassNormal, grassW);
   mappedNormal = mix(mappedNormal, wetNormal, wetness);
   mappedNormal = mix(mappedNormal, pebbleNormal, pebbleW);
+  const rippleNormal = normalize(normalWorld.add(vec3(
+    rippleSlope.mul(-22), 0,
+    rippleSlope.mul(cos(point.z.mul(1.7)).mul(2.04).add(8)).negate(),
+  ))).transformDirection(cameraViewMatrix);
+  mappedNormal = normalize(mappedNormal.add(rippleNormal.sub(normalView)));
+  mappedNormal = mix(mappedNormal, normalMap(fineGrain, vec2(0.16)),
+    closeDetail.mul(0.22).mul(float(1).sub(grassW.max(pebbleW))).mul(float(1).sub(wetness.mul(0.7))));
   const roughness = mix(
     mix(float(0.93), float(0.8), grassW),
-    float(0.13),
-    wetness,
+    float(0.28),
+    wetness.mul(wetness),
   );
   const pebbleRough = mix(
     mix(roughness, roughness.add(0.07), float(1).sub(variation.patch)),
@@ -593,7 +620,7 @@ export function createWaterMaterial(heightMap, persistentFoamSample = null, opti
   const depth = localPool
     ? float(options.depth ?? 0.12)
     : waterLevel.add(waves.height).sub(ground);
-  const optical = smoothstep(float(0.04), float(2.6), depth);
+  const optical = float(1).sub(exp(max(depth, float(0)).mul(-0.75)));
   const coverage = localPool ? float(1) : smoothstep(float(-0.03), float(0.045), depth);
   const live = localPool ? float(0) : foamSourceFromWaves(point, waves, ground);
   const field = typeof persistentFoamSample === "function"
@@ -620,11 +647,14 @@ export function createWaterMaterial(heightMap, persistentFoamSample = null, opti
   // world-space. NodeMaterial.normalNode and bumpMap() both operate in view
   // space; transform it before combining the two or the normal will appear to
   // rotate with the camera.
+  const rippleA = cos(point.x.mul(11).add(point.z.mul(7)).add(waterTime.mul(2.1))).mul(0.009);
+  const rippleB = cos(point.x.mul(-6).add(point.z.mul(17)).sub(waterTime.mul(1.7))).mul(0.006);
+  const rippleFade = float(1).sub(smoothstep(12, 45, length(cameraPosition.sub(point))));
   const waterNormalView = normalize(
     vec3(
-      waves.derivativeX.mul(waveScale).negate(),
+      waves.derivativeX.mul(waveScale).add(rippleA.add(rippleB).mul(rippleFade)).negate(),
       float(1),
-      waves.derivativeZ.mul(waveScale).negate(),
+      waves.derivativeZ.mul(waveScale).add(rippleA.mul(0.64).sub(rippleB.mul(2.83)).mul(rippleFade)).negate(),
     )
       .transformDirection(cameraViewMatrix),
   );
@@ -656,7 +686,7 @@ export function createWaterMaterial(heightMap, persistentFoamSample = null, opti
     color: 0x0c3d4a,
     fog: true,
   });
-  material.envMapIntensity = 0;
+  material.envMapIntensity = 0.65;
   material.positionNode = positionLocal.add(vec3(
     waves.chopX.mul(waveScale),
     waves.height.mul(waveScale),
@@ -666,8 +696,9 @@ export function createWaterMaterial(heightMap, persistentFoamSample = null, opti
   material.emissiveNode = vec3(1, 0.9, 0.72).mul(sunSpec);
   material.normalNode = shadedNormalView;
   material.roughnessNode = mix(float(0.18), mix(float(0.32), float(0.48), young), foam);
+  const fresnel = pow(float(1).sub(saturate(dot(normalWorld, viewDir))), 5).mul(0.98).add(0.02);
   material.opacityNode = saturate(
-    mix(float(0.2), float(0.84), optical).add(foam.mul(0.4)),
+    mix(float(0.12), float(0.86), optical).add(fresnel.mul(0.75)).add(foam.mul(0.4)),
   ).mul(coverage).mul(planeFade);
   return tag(material, 0, { water: true, rtxIgnore: true });
 }

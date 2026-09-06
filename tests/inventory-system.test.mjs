@@ -21,8 +21,8 @@ test("harvested sand and rock map to stackable inventory items", () => {
   assert.equal(harvestItemId({ kind: "terrain", surface: "wet-sand" }), "wet-sand");
   assert.equal(harvestItemId({ kind: "terrain", surface: "shallow-water" }), "wet-sand");
   assert.equal(harvestItemId({ kind: "rock", surface: "dry-sand" }), "rock");
-  assert.equal(harvestItemId({ kind: "wood", surface: "dry-sand" }), null);
-  assert.equal(harvestItemId({ kind: "palm" }), null);
+  assert.equal(harvestItemId({ kind: "wood", surface: "dry-sand" }), "palm-wood");
+  assert.equal(harvestItemId({ kind: "palm" }), "palm-wood");
 });
 
 test("dumping spends selected sand, otherwise the first sand stack", () => {
